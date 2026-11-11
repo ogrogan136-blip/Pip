@@ -74,7 +74,20 @@ select, input[type=text] {
   display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px;
   padding: 16px; max-width: 1500px; margin: 0 auto;
 }
-@media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 980px) {
+  /* on narrow screens: terrarium, Pip's thought, then the chat, then everything else */
+  .layout { display: flex; flex-direction: column; gap: 0; }
+  .stage, .side { display: contents; }
+  .canvas-wrap { order: 1; }
+  .stage > .hint { order: 2; }
+  .thought-card { order: 3; }
+  #chatPanel { order: 4; }
+  .layout > * > * { order: 5; }
+  .layout > * > .canvas-wrap { order: 1; }
+  .layout > * > .thought-card { order: 3; }
+  .layout > * > #chatPanel { order: 4; }
+  .layout > .stage > .hint { order: 2; margin-bottom: 0; }
+}
 
 .canvas-wrap {
   position: relative; border-radius: var(--radius); overflow: hidden; line-height: 0;
@@ -192,3 +205,4 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .maker-grid input[type=color] { width: 100%; height: 34px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
 .mk-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .mk-list .chip button { border: none; background: none; padding: 0 0 0 4px; color: var(--red); cursor: pointer; }
+[hidden] { display: none !important; }
