@@ -34,7 +34,7 @@ const BOOKS = {
     ['A lizard smells the air with its tongue. That\'s why I flick mine!'],
     ['Lizards shed their old skin as they grow.'],
     ['Some lizards can drop their tail and grow a new one!'],
-    ['Lizards sleep more when it\'s cool and dark. Logs make good beds.', { learn: ['log', 'rest'] }],
+    ['Lizards sleep more when it\'s cool and dark. A hard log is a poor bed — a snug, sheltered home is best.', { ideas: ['recipe:hut'] }],
     ['A flat, warm rock is a lizard\'s favourite place to bask.', { learn: ['rock', 'bask'] }],
     ['Lizards can see colours that people can\'t.'],
     ['Every lizard has its own personality. Even me.'],
@@ -135,7 +135,7 @@ const BOOKS = {
     ['Crystals grow in neat, pointy shapes.'],
     ['Sand is just very, very tiny rocks.'],
     ['Some rocks are older than the dinosaurs.'],
-    ['A rock is a fine place for a nap.', { learn: ['rock', 'rest'] }],
+    ['Rocks are hard and lumpy. You can nap on one, but it\'s not comfy!', { learn: ['rock', 'rest'] }],
   ] },
 };
 

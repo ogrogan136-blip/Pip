@@ -734,6 +734,14 @@ class Brain {
 
   reactionCore(t, v, delta, firstTime) {
     const T = typeInfo(t);
+    // how a sleep felt depends on how comfy the spot really is
+    if (v === 'rest' && (delta.health || 0) >= 0 && (delta.energy || 0) > 0) {
+      const e = delta.energy, where = t === 'ground' ? 'the hard ground' : `the ${T.emoji} ${T.name}`;
+      if (e < 22) return { mood: 'meh', text: pick([`I got a bit of rest on ${where}, but it was hard and lumpy. Not comfy at all. 😕`, `Ow, my back. ${where[0].toUpperCase() + where.slice(1)} is no proper bed. 😒`]) };
+      if (e < 45) return { mood: 'ok', text: `That was a decent rest ${T.building || ['bed', 'nest', 'den'].includes(t) ? 'in' : 'on'} ${where}. 🙂` };
+      const prep = T.building || t === 'bed' || t === 'nest' || t === 'den' ? 'in' : 'on';
+      return { mood: 'happy', text: pick([`What a comfy sleep ${prep} ${where}! 😴💚`, `Best sleep ever. My ${T.emoji} ${T.name} is SO cosy! 🥰`]) };
+    }
     if (v === 'eat' && T && T.cooked && (delta.fullness || 0) > 20) return { mood: 'happy', text: pick([`Mmm! The ${T.emoji} ${T.name} is SO much better than plain food! 🤤`, `That ${T.emoji} filled me right up. Cooking is worth it! 😋`, `Best. Meal. Ever. ${T.emoji}`]) };
     let total = 0;
     // warmth changes are neither good nor bad by themselves, so they don't count here
