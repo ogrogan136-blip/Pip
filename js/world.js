@@ -57,7 +57,7 @@ const EFFECTS = {
   flower:   { eat: { fullness: 5, fun: 4 }, play: { fun: 6 } },
   mushroom: { eat: { fullness: 4, health: -25, fun: -10 } },
   ladybug:  { eat: { health: -6, fun: -10 }, play: { fun: 4 } },
-  water:    { drink: { hydration: 45 }, play: { fun: 6, warmth: -8 }, bask: { warmth: -10 } },
+  water:    { drink: { hydration: 45 }, play: { fun: 16, warmth: -5, hydration: 4 }, bask: { warmth: -10, fun: 3 } },
   rock:     { eat: { health: -8, fun: -4 }, bask: { warmth: 8 }, rest: { energy: 10 }, play: { fun: 7, energy: -3 } },
   lamp:     { bask: { warmth: 22 }, rest: { energy: 8 } },
   log:      { rest: { energy: 35 }, play: { fun: 9, energy: -3 }, bask: { warmth: 3 } },
@@ -78,6 +78,7 @@ class World {
     this.dayLength = 240;    // one full day = 4 minutes at 1x
     this.autoFeeder = true;
     this.feederTimer = 0;
+    this.fx = [];            // visual events for the renderer (splashes etc.), not saved
     if (data) {
       this.objects = data.objects || [];
       this.nextId = data.nextId || (this.objects.reduce((m, o) => Math.max(m, o.id), 0) + 1);
@@ -177,6 +178,7 @@ class World {
       this.feederTimer += dt;
       if (this.feederTimer > 25) {
         this.feederTimer = 0;
+    this.fx = [];            // visual events for the renderer (splashes etc.), not saved
         const foods = this.objects.filter(o => ['cricket', 'mealworm', 'lettuce', 'berry'].includes(o.type)).length;
         if (foods < 3) {
           const pick = ['cricket', 'cricket', 'mealworm', 'lettuce', 'berry'][Math.floor(Math.random() * 5)];
@@ -188,6 +190,12 @@ class World {
 
   // Pip does `verb` to `obj` (null = the ground). Applies the hidden effects
   // to Pip's needs and returns what Pip felt (the raw change).
+  // What Pip sees happen when it does something (shown in its thoughts and memory)
+  addFx(kind, x, y) {
+    this.fx.push({ kind, x, y });
+    if (this.fx.length > 30) this.fx.shift();
+  }
+
   interact(lizard, obj, verb) {
     const type = obj ? obj.type : 'ground';
     const base = (EFFECTS[type] && EFFECTS[type][verb]) || {};
@@ -199,7 +207,16 @@ class World {
 
     for (const n of NEEDS) lizard.needs[n] = clamp(lizard.needs[n] + delta[n], 0, 100);
 
+    let seen = null;
     if (obj) {
+      const T = TYPES[type];
+      if (type === 'water' && (verb === 'play' || verb === 'bask')) { seen = 'splash'; this.addFx('splash', obj.x, obj.y); }
+      else if (type === 'water' && verb === 'drink') { seen = 'ripple'; this.addFx('ripple', obj.x, obj.y); }
+      else if (verb === 'eat' && T.food) { seen = 'crunch'; this.addFx('crumbs', obj.x, obj.y); }
+      else if (verb === 'play' && T.rolls) seen = 'roll';
+      else if (verb === 'play' && T.hops) seen = 'hop';
+      else if (type === 'lamp' && verb === 'bask') seen = 'glow';
+      if ((delta.health || 0) <= -5) this.addFx('ouch', lizard.x, lizard.y);
       if (verb === 'eat' && TYPES[type].food) this.remove(obj.id);
       if (verb === 'play' && TYPES[type].rolls) {
         const a = Math.atan2(obj.y - lizard.y, obj.x - lizard.x) + rand(-0.5, 0.5);
@@ -207,6 +224,14 @@ class World {
       }
       if (verb === 'play' && TYPES[type].hops) { obj.vx = rand(-150, 150); obj.vy = rand(-150, 150); obj.hop = 0.3; }
     }
+    delta.seen = seen;
     return delta;
   }
 }
+
+// How Pip describes what it saw happen
+const SEEN_TEXT = {
+  splash: 'The water splashed everywhere! 💦', ripple: 'Ripples spread across the water.', crunch: 'Crunch!',
+  roll: 'It rolled away!', hop: 'It jumped!', glow: 'The light is so warm.',
+};
+const SEEN_ICON = { splash: '💦', ripple: '〰️', crunch: '😋', roll: '💨', hop: '🦘', glow: '✨' };

@@ -15,7 +15,7 @@
   try { game = new Game(loadSave()); } catch (e) { console.warn('Save was unreadable, starting fresh', e); game = new Game(null); }
   if (!game.log.length) game.addLog(game.brain.stats.actions ? `I'm back! I still remember ${game.brain.stats.discoveries} things I've learned. 🦎` : 'Hi! I\'m Pip. I don\'t know anything about this place yet… 🦎', 'thought');
 
-  const renderer = new Renderer($('world'));
+  const renderer = new Renderer3D($('world'), $('overlay'));
   const ui = { tool: 'hand', ghost: null, highlight: null, showIntent: true, drag: null };
   let speed = 1;
 
@@ -26,7 +26,7 @@
     const b = document.createElement('button');
     b.dataset.tool = k;
     b.innerHTML = `<span class="e">${e}</span>${label}`;
-    b.title = k === 'hand' ? 'Click Pip to pet it, drag things to move them' : k === 'remove' ? 'Click something to remove it' : `Place a ${label}`;
+    b.title = k === 'hand' ? 'Click Pip to pet it, drag things to move them, drag empty space to turn the view' : k === 'remove' ? 'Click something to remove it' : `Place a ${label}`;
     b.onclick = () => setTool(k);
     palette.appendChild(b);
   }
@@ -37,33 +37,47 @@
   setTool('hand');
 
   // ---------- canvas input ----------
+  // Click = place / pet / remove. Drag a thing = move it. Drag empty space = turn the camera.
   const canvas = $('world');
-  function toWorld(ev) {
-    const r = canvas.getBoundingClientRect();
-    return { x: (ev.clientX - r.left) / r.width * WORLD_W, y: (ev.clientY - r.top) / r.height * WORLD_H };
-  }
+  let down = null;
   canvas.addEventListener('pointerdown', ev => {
-    const p = toWorld(ev);
-    const L = game.lizard;
-    if (ui.tool === 'hand') {
-      if (dist(p.x, p.y, L.x, L.y) < 30 || L.segs.some(s => dist(p.x, p.y, s.x, s.y) < 14)) { game.pet(); return; }
-      const o = game.world.objectAt(p.x, p.y);
-      if (o) { ui.drag = o; canvas.setPointerCapture(ev.pointerId); }
-    } else if (ui.tool === 'remove') {
-      const o = game.world.objectAt(p.x, p.y);
-      if (o) game.world.remove(o.id);
-    } else {
-      game.world.add(ui.tool, p.x, p.y);
-    }
+    canvas.setPointerCapture(ev.pointerId);
+    const h = renderer.pick(ev.clientX, ev.clientY);
+    down = { x: ev.clientX, y: ev.clientY, h, moved: false, orbit: false };
+    if (ui.tool === 'hand' && h.objId && !h.lizard) ui.drag = game.world.get(h.objId);
   });
   canvas.addEventListener('pointermove', ev => {
-    const p = toWorld(ev);
-    if (ui.drag) { ui.drag.x = clamp(p.x, 15, WORLD_W - 15); ui.drag.y = clamp(p.y, 15, WORLD_H - 15); ui.drag.vx = ui.drag.vy = 0; return; }
-    ui.ghost = TYPES[ui.tool] && ev.pointerType === 'mouse' ? { type: ui.tool, x: p.x, y: p.y } : null;
-    ui.highlight = (ui.tool === 'hand' || ui.tool === 'remove') ? game.world.objectAt(p.x, p.y) : null;
+    if (down) {
+      const dx = ev.clientX - down.x, dy = ev.clientY - down.y;
+      if (!down.moved && Math.hypot(dx, dy) > 6) { down.moved = true; down.orbit = !ui.drag; down.lx = ev.clientX; down.ly = ev.clientY; }
+      if (down.moved && ui.drag) {
+        const h = renderer.pick(ev.clientX, ev.clientY);
+        if (h.x !== null) { ui.drag.x = clamp(h.x, 15, WORLD_W - 15); ui.drag.y = clamp(h.y, 15, WORLD_H - 15); ui.drag.vx = ui.drag.vy = 0; }
+      } else if (down.orbit) {
+        renderer.orbit(ev.clientX - down.lx, ev.clientY - down.ly);
+        down.lx = ev.clientX; down.ly = ev.clientY;
+      }
+      return;
+    }
+    const h = renderer.pick(ev.clientX, ev.clientY);
+    ui.ghost = TYPES[ui.tool] && ev.pointerType === 'mouse' && h.x !== null ? { x: h.x, y: h.y } : null;
+    ui.highlight = (ui.tool === 'hand' || ui.tool === 'remove') ? h.objId : null;
   });
-  canvas.addEventListener('pointerup', () => { ui.drag = null; });
-  canvas.addEventListener('pointerleave', () => { ui.ghost = null; ui.highlight = null; });
+  canvas.addEventListener('pointerup', ev => {
+    if (!down) return;
+    const { h, moved } = down;
+    down = null; ui.drag = null;
+    if (moved) return;
+    if (ui.tool === 'hand') { if (h.lizard) game.pet(); }
+    else if (ui.tool === 'remove') { if (h.objId) game.world.remove(h.objId); }
+    else if (h.x !== null) game.world.add(ui.tool, h.x, h.y);
+  });
+  canvas.addEventListener('pointerleave', () => { if (!down) { ui.ghost = null; ui.highlight = null; } });
+  canvas.addEventListener('wheel', ev => { ev.preventDefault(); renderer.zoom(ev.deltaY > 0 ? 1.1 : 0.9); }, { passive: false });
+  $('zoomIn').onclick = () => renderer.zoom(0.85);
+  $('zoomOut').onclick = () => renderer.zoom(1.18);
+  $('resetView').onclick = () => { renderer.resetView(); $('follow').classList.remove('on'); };
+  $('follow').onclick = () => { renderer.view.follow = !renderer.view.follow; $('follow').classList.toggle('on', renderer.view.follow); if (renderer.view.follow) renderer.zoom(0.6); };
 
   // ---------- header ----------
   for (const b of document.querySelectorAll('.speed button')) {
@@ -180,7 +194,8 @@
           const effs = NEEDS.filter(n => Math.abs(e.d[n] || 0) >= 2).map(n => `${needShort[n]}${e.d[n] > 0 ? '+' : ''}${Math.round(e.d[n])}`);
           const score = NEEDS.reduce((s, n) => s + (e.d[n] || 0) * (n === 'health' ? 3 : n === 'energy' && e.d[n] < 0 ? 0.3 : 1), 0);
           const cls = (e.d.health || 0) < -2 || score < -3 ? 'bad' : score > 4 ? 'good' : '';
-          return `<span class="chip ${cls}" title="tried ${e.n}×">${e.verb} ${effs.length ? effs.join(' ') : '· nothing'}</span>`;
+          const saw = e.seen && SEEN_ICON[e.seen] ? SEEN_ICON[e.seen] + ' ' : '';
+          return `<span class="chip ${cls}" title="tried ${e.n}×">${e.verb} ${saw}${effs.length ? effs.join(' ') : (saw ? '' : '· nothing')}</span>`;
         }).join('');
         return `<div class="row"><span class="e" title="${T.name}">${T.emoji}</span><div>${chips}</div></div>`;
       }).join('');
@@ -234,7 +249,7 @@
     let steps = 0;
     while (acc >= STEP && steps < 400) { game.step(STEP); acc -= STEP; steps++; }
     if (acc > STEP) acc = 0;
-    renderer.draw(game, ui);
+    renderer.draw(game, ui, dt);
     renderNeeds();
     renderLog();
     $('thought').textContent = game.lizard.thought;

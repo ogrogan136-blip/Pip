@@ -23,7 +23,8 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - `js/brain.js`: needs, learning, word learning, decision-making
 - `js/lizard.js`: body, senses, memory of where things are, carrying out plans
 - `js/game.js`: tasks, training, saving
-- `js/render.js`, `js/ui.js`: drawing and the page
+- `js/render3d.js`: the 3D terrarium (three.js)
+- `js/ui.js`: the page and controls
 
 Headless learning test: `node tests/sim.js`
 

@@ -22,7 +22,15 @@
     <section class="stage">
       <div class="canvas-wrap">
         <canvas id="world" aria-label="Pip's terrarium"></canvas>
+        <div class="overlay" id="overlay"></div>
+        <div class="view-controls" role="group" aria-label="Camera">
+          <button id="follow" title="Follow Pip">🎥 Follow Pip</button>
+          <button id="zoomIn" title="Zoom in" aria-label="Zoom in">＋</button>
+          <button id="zoomOut" title="Zoom out" aria-label="Zoom out">－</button>
+          <button id="resetView" title="Reset view">⟲</button>
+        </div>
       </div>
+      <p class="hint">Drag the empty floor to turn the view · scroll or ＋/－ to zoom.</p>
       <div class="thought-card">
         <div class="thought" id="thought">…</div>
       </div>
@@ -103,7 +111,8 @@
   <script src="js/brain.js"></script>
   <script src="js/lizard.js"></script>
   <script src="js/game.js"></script>
-  <script src="js/render.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
+  <script src="js/render3d.js"></script>
   <script src="js/ui.js"></script>
 </body>
 </html>

@@ -34,6 +34,9 @@ class Brain {
     this.curiosity = 1;  // personality: how adventurous Pip is
     this.satedUntil = 0; // after experimenting, curiosity takes a while to build up again
     if (data) Object.assign(this, data);
+    // Water play used to do almost nothing; let Pip find out it splashes now.
+    const wp = this.effects['water:play'];
+    if (wp && (wp.d.fun || 0) < 10) delete this.effects['water:play'];
   }
 
   toJSON() {
@@ -55,6 +58,7 @@ class Brain {
       const old = e.d[n] || 0;
       e.d[n] = Math.round((old + alpha * ((delta[n] || 0) - old)) * 10) / 10;
     }
+    if (delta.seen) e.seen = delta.seen; // remember what it saw happen, too
     this.stats.actions++;
     if (first) this.stats.discoveries++;
     return first;
@@ -317,9 +321,17 @@ class Brain {
 
   // Pip's reaction to what just happened.
   reactionFor(t, v, delta, firstTime) {
+    const r = this.reactionCore(t, v, delta, firstTime);
+    if (delta.seen && SEEN_TEXT[delta.seen] && r.mood !== 'hurt') r.text = SEEN_TEXT[delta.seen] + ' ' + r.text;
+    return r;
+  }
+
+  reactionCore(t, v, delta, firstTime) {
     const T = typeInfo(t);
     let total = 0;
-    for (const n of NEEDS) if (n !== 'energy' || delta[n] > 0) total += (delta[n] || 0) * (n === 'health' ? 2 : 1);
+    // warmth changes are neither good nor bad by themselves, so they don't count here
+    for (const n of NEEDS) if (n !== 'warmth' && (n !== 'energy' || delta[n] > 0)) total += (delta[n] || 0) * (n === 'health' ? 2 : 1);
+    if (Math.abs(delta.warmth || 0) >= 8) total += 4;
     if (delta.health <= -5) return { mood: 'hurt', text: pick([`OUCH! ${T.emoji} hurts! Note to self: don't ${VERB_INFO[v].phrase} that. 😣`, `Owww! Never doing that again! 😖`, `Bleh! ${T.emoji} is bad news. 🤢`]) };
     if (total >= 20) return { mood: 'happy', text: firstTime ? `WOW! I just discovered I can ${VERB_INFO[v].phrase} ${T.emoji}! It ${this.describeEffect(delta)}! 🤩` : pick([`Ahh, that ${this.describeEffect(delta)}. 😌`, `Yes! ${T.emoji} is the best! 💚`, `Mmm, much better. 😊`]) };
     if (total >= 4) return { mood: 'ok', text: firstTime ? `Ooh, ${VERB_INFO[v].ing} ${T.emoji} ${this.describeEffect(delta)}. Good to know! 📝` : `That ${this.describeEffect(delta)}. 🙂` };
@@ -339,7 +351,7 @@ class Brain {
     const byType = {};
     for (const [k, e] of Object.entries(this.effects)) {
       const [t, v] = k.split(':');
-      (byType[t] || (byType[t] = [])).push({ verb: v, n: e.n, d: e.d });
+      (byType[t] || (byType[t] = [])).push({ verb: v, n: e.n, d: e.d, seen: e.seen });
     }
     return byType;
   }
