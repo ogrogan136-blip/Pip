@@ -35,7 +35,18 @@ class Game {
     this.lizard.onThought = (text, kind) => this.addLog(text, kind);
     this.lizard.onAction = (t, v, d) => this.handleAction(t, v, d);
     // older saves could have had the water dish, lamp or log tidied away by mistake
-    if (save && (save.v || 1) < 5 && !this.world.objects.some(o => o.type === 'grass')) this.world.add('grass', 600, 500);
+    if (save && (save.v || 1) < 6) {
+      // the little round grass patch became a meadow across the bottom of the tank
+      this.world.objects = this.world.objects.filter(o => o.type !== 'grass');
+      this.world.add('grass', MEADOW.x, MEADOW.y);
+      const crops = this.world.objects.filter(o => o.type === 'seedling' || o.type === 'plant');
+      crops.forEach((o, i) => {
+        o.x = FARM.x + (i % FARM.cols - (FARM.cols - 1) / 2) * FARM.gap; o.y = FARM.y + (Math.floor(i / FARM.cols) % FARM.rows - (FARM.rows - 1) / 2) * FARM.gap;
+        o.onGrass = true; o.sandTime = 0;
+      });
+      for (const [id, m] of this.lizard.memory) { const o = this.world.get(id); if (o) { m.x = o.x; m.y = o.y; } else if (m.type === 'grass') this.lizard.memory.delete(id); }
+      if (this.brain.farm) this.brain.farm = null;
+    }
     if (save && (save.v || 1) < 4) {
       const has = t => this.world.objects.some(o => o.type === t);
       if (!has('water')) this.world.add('water', 780, 480);
@@ -174,7 +185,7 @@ class Game {
 
   // ---- save / load ----
   toJSON() {
-    return { v: 5, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question, daydreams: this.daydreams, freeImagination: this.freeImagination };
+    return { v: 6, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question, daydreams: this.daydreams, freeImagination: this.freeImagination };
   }
 }
 

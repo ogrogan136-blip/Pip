@@ -55,7 +55,7 @@ const TYPES = {
   bone:     { emoji: '🦴', name: 'bone',       size: 12, hidden: true },
   nest:     { emoji: '🪹', name: 'nest',       size: 24, hidden: true },
   den:      { emoji: '⛺', name: 'den',        size: 26, hidden: true },
-  grass:    { emoji: '🌿', name: 'grass patch', size: 70, patch: true, words: ['grass', 'patch', 'garden', 'soil'] },
+  grass:    { emoji: '🌿', name: 'grass', size: 24, patch: true, words: ['grass', 'patch', 'garden', 'soil', 'meadow', 'lawn'] },
   seedling: { emoji: '🌱', name: 'seedling',   size: 10, hidden: true },
   plant:    { emoji: '🪴', name: 'food plant', size: 20, hidden: true },
   cricketbox: { emoji: '📦', name: 'cricket box', size: 20, hidden: true },
@@ -94,6 +94,13 @@ const EFFECTS = {
   den:      { rest: { energy: 40, warmth: 6 }, play: { fun: 8 } },
 };
 
+// The grass meadow covers the bottom part of the tank (centre x, y and size, in floor units).
+const MEADOW = { x: 480, y: 475, w: 960, h: 250 };
+// how far the meadow's top edge bulges at a given x (a gentle wave, so it looks natural)
+function meadowWave(dx) { return Math.sin(dx * 0.013) * 9 + Math.sin(dx * 0.031 + 1) * 5; }
+// Where Pip grows crops once it knows to: neat rows on the left of the meadow.
+const FARM = { x: 250, y: 470, cols: 5, rows: 3, gap: 46 };
+
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -129,7 +136,7 @@ class World {
     this.add('cactus', 330, 330);
     this.add('mushroom', 680, 380);
     this.add('bookstore', 470, 85);
-    this.add('grass', 600, 500);
+    this.add('grass', MEADOW.x, MEADOW.y);
   }
 
   toJSON() {
@@ -143,7 +150,7 @@ class World {
     return o;
   }
 
-  onGrass(x, y) { return this.objects.some(g => g.type === 'grass' && dist(g.x, g.y, x, y) < TYPES.grass.size - 6); }
+  onGrass(x, y) { return this.objects.some(g => g.type === 'grass' && Math.abs(x - g.x) < MEADOW.w / 2 - 4 && y - g.y < MEADOW.h / 2 && g.y - y < MEADOW.h / 2 - 14 + meadowWave(x - g.x)); }
   wither(o, reason) {
     this.addFx('chips', o.x, o.y);
     this.events.push({ kind: 'withered', reason, grows: o.grows, x: o.x, y: o.y });

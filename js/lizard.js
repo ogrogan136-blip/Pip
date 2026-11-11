@@ -148,7 +148,7 @@ class Lizard {
           const door = TYPES[p.type].building ? 38 : 0; // walk to the front door
           if (obj && dist(this.x, this.y, obj.x, obj.y) < VISION) { p.x = obj.x; p.y = obj.y + door; }
         }
-        const reachDist = !p.objId ? 8 : TYPES[p.type].building ? 10 : this.reach + TYPES[p.type].size * 0.6;
+        const reachDist = !p.objId ? (p.verb === 'plant' ? 20 : 8) : TYPES[p.type].building ? 10 : this.reach + TYPES[p.type].size * 0.6;
         const d = dist(this.x, this.y, p.x, p.y);
         if (p.kind === 'act' && p.type === 'ground') { this.startAction(null, p); break; }
         if (d < reachDist) {
@@ -356,7 +356,7 @@ class Lizard {
       else {
         brain.seeds[p.type]--;
         world.makeRoom();
-        const o = world.add('seedling', this.x + Math.cos(this.heading) * 18, this.y + Math.sin(this.heading) * 18);
+        const o = world.add('seedling', p.x, p.y);
         if (o) { o.grows = p.type; o.age = 0; o.water = 45; o.onGrass = world.onGrass(o.x, o.y); world.addFx('sand', o.x, o.y); }
         s.hits++; mood = 'happy';
         text = s.hits === 1 ? `I planted a ${TYPES[p.type].emoji} seed! Now I just have to wait for it to grow. 🌱` : o && o.onGrass ? `Planted a ${TYPES[p.type].emoji} seed in the grass. Grow, little seed!` : `Planted another ${TYPES[p.type].emoji} seed.`;

@@ -82,10 +82,13 @@ class Brain {
   farmSpot(lizard, n) {
     const w = lizard.worldRef;
     const grass = w && [...lizard.memory.values()].find(m => m.type === 'grass' && w.get(m.id));
-    // Knows seeds go in grass: plant in a neat grid on the patch
+    // Knows seeds go in grass: plant in neat rows in the farm corner of the meadow, in the first free spot
     if (this.hasIdea('grass') && grass) {
-      const col = n % 3, row = Math.floor(n / 3) % 3;
-      return { x: grass.x + (col - 1) * 30, y: grass.y + (row - 1) * 30 };
+      for (let i = 0; i < FARM.cols * FARM.rows; i++) {
+        const x = FARM.x + (i % FARM.cols - (FARM.cols - 1) / 2) * FARM.gap, y = FARM.y + (Math.floor(i / FARM.cols) - (FARM.rows - 1) / 2) * FARM.gap;
+        if (!w.objects.some(o => (o.type === 'seedling' || o.type === 'plant') && dist(o.x, o.y, x, y) < FARM.gap * 0.6)) return { x, y };
+      }
+      return { x: FARM.x, y: FARM.y };
     }
     // Doesn't know yet. After a failure or two, Pip experiments with other spots.
     const g = this.garden || {};
@@ -96,7 +99,7 @@ class Brain {
     }
     if (!this.farm) {
       const water = w && w.objects.find(o => o.type === 'water');
-      this.farm = water ? { x: clamp(water.x - 150, 80, WORLD_W - 80), y: clamp(water.y - 40, 80, WORLD_H - 80) } : { x: lizard.x, y: lizard.y };
+      this.farm = { x: 470, y: 225 }; // a sandy spot (it won't work, but Pip doesn't know that yet)
     }
     const col = n % 3, row = Math.floor(n / 3) % 3;
     return { x: clamp(this.farm.x + (col - 1) * 50, 30, WORLD_W - 30), y: clamp(this.farm.y + (row - 1) * 50, 30, WORLD_H - 30) };
@@ -185,7 +188,7 @@ class Brain {
     // gardening, once Pip has read about it
     const seedTypes = Object.keys(this.seeds || {}).filter(t => this.seeds[t] > 0 && TYPES[t]);
     const growing = mem.filter(m => m.type === 'seedling' || m.type === 'plant').length;
-    if (this.hasIdea('plant') && seedTypes.length && growing < 9) {
+    if (this.hasIdea('plant') && seedTypes.length && growing < FARM.cols * FARM.rows) {
       const s = this.skills.plant || { n: 0, hits: 0 };
       const t = seedTypes[Math.floor(Math.random() * seedTypes.length)];
       const spot = this.farmSpot(lizard, growing);

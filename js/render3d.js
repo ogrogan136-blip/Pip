@@ -201,22 +201,55 @@ function buildModel(type, o) {
       break;
     }
     case 'grass': {
-      let sd = 3; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+      // a meadow over the bottom of the tank, with a wavy edge where it meets the sand
+      const W = MEADOW.w, H = MEADOW.h;
       const shape = new THREE.Shape();
-      for (let i = 0; i <= 40; i++) { const a = i / 40 * Math.PI * 2, r = 66 + Math.sin(i * 1.7) * 3 + Math.sin(i * 0.6) * 2; i ? shape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : shape.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
-      const turf = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 1.6, bevelEnabled: false }), mat('#4f8a2c', { roughness: 1 }));
-      turf.rotation.x = -Math.PI / 2; turf.receiveShadow = true; g.add(turf);
-      for (let i = 0; i < 12; i++) { const a = rr() * Math.PI * 2, d = rr() * 50; const p = mesh(new THREE.CircleGeometry(6 + rr() * 10, 10), mat(i % 2 ? '#5a9735' : '#467d27', { roughness: 1 }), Math.cos(a) * d, 1.7, Math.sin(a) * d); p.rotation.x = -Math.PI / 2; p.castShadow = false; g.add(p); }
-      for (let i = 0; i < 140; i++) {
-        const a = rr() * Math.PI * 2, d = Math.sqrt(rr()) * 64;
-        const blade = mesh(new THREE.ConeGeometry(0.7, 3 + rr() * 6, 3), mat(['#5f9433', '#7fb247', '#4a7f2a', '#8cc152'][i % 4]), Math.cos(a) * d, 3, Math.sin(a) * d);
-        blade.castShadow = false; blade.rotation.set((rr() - 0.5) * 0.6, rr() * 3, (rr() - 0.5) * 0.6);
-        g.add(blade);
+      shape.moveTo(-W / 2, -H / 2);
+      shape.lineTo(W / 2, -H / 2);
+      for (let i = 0; i <= 48; i++) { const x = W / 2 - i / 48 * W; shape.lineTo(x, H / 2 - 12 + meadowWave(x)); }
+      shape.lineTo(-W / 2, -H / 2);
+      const turf = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.8, bevelEnabled: false }), mat('#4f8a2c', { roughness: 1 }));
+      turf.rotation.x = -Math.PI / 2; turf.receiveShadow = true;
+      g.add(turf);
+      let sd = 3; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+      const inMeadow = (x, z) => -z < H / 2 - 16 + meadowWave(x);
+      // patches of lighter and darker grass
+      for (let i = 0; i < 26; i++) {
+        const x = (rr() - 0.5) * (W - 60), z = (rr() - 0.5) * (H - 40);
+        if (!inMeadow(x, z - 20)) continue;
+        const p = mesh(new THREE.CircleGeometry(14 + rr() * 26, 12), mat(i % 2 ? '#5a9735' : '#467d27', { roughness: 1 }), x, 0.9, z);
+        p.rotation.x = -Math.PI / 2; p.castShadow = false; p.receiveShadow = true; g.add(p);
       }
-      for (let i = 0; i < 6; i++) { const a = rr() * Math.PI * 2, d = 20 + rr() * 40; for (let q = 0; q < 3; q++) { const c = mesh(sphere(1.1, 6), mat('#6cab3f'), Math.cos(a) * d + Math.cos(q * 2.1) * 1.1, 2.2, Math.sin(a) * d + Math.sin(q * 2.1) * 1.1); c.scale.y = 0.3; c.castShadow = false; g.add(c); } }
-      for (let i = 0; i < 4; i++) { const a = rr() * Math.PI * 2, d = 25 + rr() * 35; g.add(mesh(sphere(0.9, 6), mat('#ffffff'), Math.cos(a) * d, 3.2, Math.sin(a) * d)); }
-      // a border of flat stones around the garden
-      for (let i = 0; i < 30; i++) { const a = i / 30 * Math.PI * 2, r = 68 + Math.sin(i * 1.7 * 40 / 30) * 2; const st = mesh(jitterGeo(new THREE.DodecahedronGeometry(3.4 + rr() * 1.5, 0), 0.8, i + 4), mat(['#a39d92', '#8d877d', '#b7afa2'][i % 3], { flatShading: true }), Math.cos(a) * r, 1.6, Math.sin(a) * r); st.scale.y = 0.45; g.add(st); }
+      // thousands of blades of grass, drawn in one go
+      const N = 2600, blades = new THREE.InstancedMesh(new THREE.ConeGeometry(0.7, 1, 3), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9 }), N);
+      const dummy = new THREE.Object3D(), cols = ['#5f9433', '#7fb247', '#4a7f2a', '#8cc152', '#6aa13a'].map(c => new THREE.Color(c));
+      let k = 0;
+      for (let t = 0; t < N * 2 && k < N; t++) {
+        const x = (rr() - 0.5) * (W - 10), z = (rr() - 0.5) * (H - 6);
+        if (!inMeadow(x, z)) continue;
+        const h = 3 + rr() * 6;
+        dummy.position.set(x, 0.8 + h / 2, z); dummy.rotation.set((rr() - 0.5) * 0.5, rr() * 3, (rr() - 0.5) * 0.5); dummy.scale.set(1, h, 1);
+        dummy.updateMatrix(); blades.setMatrixAt(k, dummy.matrix); blades.setColorAt(k, cols[k % cols.length]); k++;
+      }
+      blades.count = k; blades.castShadow = false; blades.receiveShadow = true;
+      g.add(blades);
+      // clover and little white flowers
+      for (let i = 0; i < 40; i++) {
+        const x = (rr() - 0.5) * (W - 40), z = (rr() - 0.5) * (H - 30);
+        if (!inMeadow(x, z)) continue;
+        if (i % 3) { for (let q = 0; q < 3; q++) { const c = mesh(sphere(1.1, 6), mat('#6cab3f'), x + Math.cos(q * 2.1) * 1.1, 1.4, z + Math.sin(q * 2.1) * 1.1); c.scale.y = 0.3; c.castShadow = false; g.add(c); } }
+        else g.add(mesh(sphere(0.9, 6), mat(rr() < 0.5 ? '#ffffff' : '#ffe066'), x, 3.2, z));
+      }
+      // stones along the edge where grass meets sand
+      for (let i = 0; i < 46; i++) {
+        const x = -W / 2 + 12 + i / 45 * (W - 24), z = -(H / 2 - 12 + meadowWave(x)) + (rr() - 0.5) * 5;
+        const st = mesh(jitterGeo(new THREE.DodecahedronGeometry(3 + rr() * 2, 0), 0.8, i + 4), mat(['#a39d92', '#8d877d', '#b7afa2'][i % 3], { flatShading: true }), x, 1, z);
+        st.scale.y = 0.45; g.add(st);
+      }
+      // the farm bed: a slightly darker strip where Pip grows crops
+      const bed = mesh(new THREE.PlaneGeometry(FARM.cols * FARM.gap + 14, FARM.rows * FARM.gap + 14), mat('#3f6f22', { roughness: 1 }), FARM.x - MEADOW.x, 1.0, FARM.y - MEADOW.y);
+      bed.rotation.x = -Math.PI / 2; bed.castShadow = false; bed.receiveShadow = true; g.add(bed);
+      g.userData.patch = true;
       break;
     }
     case 'seedling':
@@ -524,7 +557,7 @@ class Renderer3D {
         m.userData.type = o.type;
         m.userData.stKey = (o.type === 'seedling' || o.type === 'plant') ? cropState(o).key : '';
         if (o.type === 'seedling' || o.type === 'plant') { m.scale.setScalar(1); m.userData.grow = 1; }
-        if (!TYPES[o.type].building) m.rotation.y = (o.id * 2.39) % (Math.PI * 2);
+        if (!TYPES[o.type].building && !TYPES[o.type].patch) m.rotation.y = (o.id * 2.39) % (Math.PI * 2);
         if (TYPES[o.type].heat) {
           const glow = new THREE.Mesh(new THREE.PlaneGeometry(TYPES[o.type].heat * 2, TYPES[o.type].heat * 2), new THREE.MeshBasicMaterial({ map: this.glowTex, transparent: true, depthWrite: false }));
           glow.rotation.x = -Math.PI / 2; glow.position.y = 0.6;
@@ -553,6 +586,7 @@ class Renderer3D {
         m.add(sp); m.userData.label = sp;
       }
       if (m.userData.label) m.userData.label.position.y = T.size * 2 + 14 + Math.sin(o.t * 2) * 2;
+      if (m.userData.patch && m.userData.grow < 1) { m.userData.grow = 1; m.scale.setScalar(1); }
       if (m.userData.grow < 1) { m.userData.grow = Math.min(1, m.userData.grow + 0.08); const g = m.userData.grow; m.scale.setScalar(g < 1 ? 1 + Math.sin(g * Math.PI) * 0.25 - (1 - g) : 1); }
       if (T.hops) {
         if (o.hop > 0) m.position.y = Math.sin((0.35 - o.hop) / 0.35 * Math.PI) * 14;
@@ -728,7 +762,7 @@ class Renderer3D {
     const ndc = new THREE.Vector2((clientX - rect.left) / rect.width * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(ndc, this.camera);
     // objects first, so you can grab tall things like the lamp
-    const hits = this.raycaster.intersectObjects([...this.objMeshes.values()], true);
+    const hits = this.raycaster.intersectObjects([...this.objMeshes.values()].filter(m => !m.userData.patch), true);
     let objId = null;
     for (const h of hits) { let o = h.object; while (o && !o.userData.id) o = o.parent; if (o) { objId = o.userData.id; break; } }
     const lizHit = this.raycaster.intersectObject(this.lizardGroup, true).length > 0;
