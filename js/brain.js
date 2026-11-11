@@ -442,7 +442,7 @@ class Brain {
     const byType = {};
     for (const [k, e] of Object.entries(this.effects)) {
       const [t, v] = k.split(':');
-      (byType[t] || (byType[t] = [])).push({ verb: v, n: e.n, d: e.d, seen: e.seen, book: !!e.book && e.n === 0 });
+      (byType[t] || (byType[t] = [])).push({ verb: v, n: e.n, d: e.d, seen: e.seen, book: !!e.book && e.n === 0, told: !!e.told && e.n === 0 });
     }
     return byType;
   }

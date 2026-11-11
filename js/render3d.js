@@ -193,6 +193,16 @@ function buildModel(type) {
       break;
     }
   }
+  const CT = TYPES[type];
+  if (CT && CT.custom) {
+    const r = CT.size, m = mat(CT.color, { roughness: 0.5 });
+    if (CT.shape === 'box') add(mesh(new THREE.BoxGeometry(r * 1.6, r * 1.6, r * 1.6), m, 0, r * 0.8, 0));
+    else if (CT.shape === 'cone') add(mesh(new THREE.ConeGeometry(r, r * 2.2, 18), m, 0, r * 1.1, 0));
+    else if (CT.shape === 'cylinder') add(mesh(cyl(r, r, r * 1.4, 20), m, 0, r * 0.7, 0));
+    else if (CT.shape === 'blob') { const b = add(mesh(jitterGeo(new THREE.DodecahedronGeometry(r, 1), r * 0.3, 5), mat(CT.color, { roughness: 0.6, flatShading: true }), 0, r * 0.7, 0)); b.scale.y = 0.8; }
+    else if (CT.shape === 'star') { for (let i = 0; i < 3; i++) { const c = add(mesh(new THREE.OctahedronGeometry(r, 0), m, 0, r, 0)); c.rotation.set(i * 1.05, i * 0.7, 0); c.scale.set(1, 0.45, 0.45); } }
+    else add(mesh(sphere(r, 20), m, 0, r, 0));
+  }
   g.traverse(o => { if (o.isMesh) o.userData.type = type; });
   return g;
 }
@@ -676,6 +686,7 @@ class Renderer3D {
     if (sleeping) st = '💤';
     else if (L.mood === 'hurt') st = '💢';
     else if (game.celebrate > 0) st = '🎉';
+    else if (game.question) st = '🙋';
     this.status.hidden = !st;
     if (st) {
       if (this.status.textContent !== st) this.status.textContent = st;

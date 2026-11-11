@@ -8,7 +8,15 @@ const SAVE_KEY = 'pip-lizard-save-v1';
 
 class Game {
   constructor(save) {
+    // things the human invented have to exist before the world is loaded
+    this.custom = (save && save.custom) || [];
+    this.custom.forEach(registerCustomType);
+    this.chat = (save && save.chat) || [];
+    this.question = (save && save.question) || null;
+    this.nextAsk = 0;
+    this.askTimer = 5;
     this.world = new World(save && save.world);
+    this.world.objects = this.world.objects.filter(o => TYPES[o.type]);
     this.world.objects.forEach(o => { o.held = false; });
     // older saves: the book shop is new, so build one
     if (save && !save.bookshop && !this.world.objects.some(o => o.type === 'bookstore')) this.world.add('bookstore', 470, 85);
@@ -40,11 +48,14 @@ class Game {
     this.world.update(dt, this.lizard);
     this.lizard.update(dt, this.world, this.brain, this.task);
     if (this.celebrate > 0) this.celebrate -= dt;
+    this.askTimer -= dt;
+    if (this.askTimer <= 0) { this.askTimer = 5; if (!this.nextAsk) this.nextAsk = this.world.time + 45; this.maybeAsk(); }
   }
 
   // ---- tasks ----
   giveTask(opts) {
     this.task = new Task(opts);
+    this.task.givenAt = this.world.time;
     this.addLog(`📋 New task: "${this.task.text}"${this.task.count > 1 ? ` ×${this.task.count}` : ''}`, 'task');
     // drop what it's doing and think about the task
     if (['moving', 'pausing', 'idling', 'considering'].includes(this.lizard.state)) this.lizard.state = 'deciding';
@@ -129,6 +140,8 @@ class Game {
 
   // ---- save / load ----
   toJSON() {
-    return { v: 3, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory };
+    return { v: 3, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question };
   }
 }
+
+Object.assign(Game.prototype, Talk);

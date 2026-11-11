@@ -20,7 +20,7 @@ class Lizard {
       this.name = data.name || 'Pip';
       this.x = data.x; this.y = data.y; this.heading = data.heading || 0;
       Object.assign(this.needs, data.needs || {});
-      for (const m of data.memory || []) this.memory.set(m.id, m);
+      for (const m of data.memory || []) if (TYPES[m.type]) this.memory.set(m.id, m);
     }
     this.segs = [];
     for (let i = 0; i < SEGMENTS; i++) this.segs.push({ x: this.x - Math.cos(this.heading) * i * SEG_SPACING, y: this.y - Math.sin(this.heading) * i * SEG_SPACING });

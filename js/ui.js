@@ -21,20 +21,25 @@
 
   // ---------- palette ----------
   const palette = $('palette');
-  const tools = [['hand', '✋', 'Pet / move'], ...Object.entries(TYPES).map(([k, t]) => [k, t.emoji, t.name]), ['remove', '🧹', 'Remove']];
-  for (const [k, e, label] of tools) {
-    const b = document.createElement('button');
-    b.dataset.tool = k;
-    b.innerHTML = `<span class="e">${e}</span>${label}`;
-    b.title = k === 'hand' ? 'Click Pip to pet it, drag things to move them, drag empty space to turn the view' : k === 'remove' ? 'Click something to remove it' : `Place a ${label}`;
-    b.onclick = () => setTool(k);
-    palette.appendChild(b);
+  function buildPalette() {
+    palette.innerHTML = '';
+    const tools = [['hand', '✋', 'Pet / move'], ...Object.entries(TYPES).map(([k, t]) => [k, t.emoji, t.name]), ['remove', '🧹', 'Remove']];
+    for (const [k, e, label] of tools) {
+      const b = document.createElement('button');
+      b.dataset.tool = k;
+      b.innerHTML = `<span class="e">${escapeHtml(e)}</span>${escapeHtml(label)}`;
+      b.title = k === 'hand' ? 'Click Pip to pet it, drag things to move them, drag empty space to turn the view' : k === 'remove' ? 'Click something to remove it' : `Place a ${label}`;
+      b.onclick = () => setTool(k);
+      palette.appendChild(b);
+    }
+    if (!TYPES[ui.tool] && ui.tool !== 'remove') ui.tool = 'hand';
+    setTool(ui.tool);
   }
   function setTool(k) {
     ui.tool = k;
     for (const b of palette.children) b.classList.toggle('on', b.dataset.tool === k);
   }
-  setTool('hand');
+  buildPalette();
 
   // ---------- canvas input ----------
   // Click = place / pet / remove. Drag a thing = move it. Drag empty space = turn the camera.
@@ -134,12 +139,17 @@
 
   // ---------- tasks ----------
   const typeSel = $('taskType');
-  for (const [k, t] of Object.entries(TYPES)) {
-    const o = document.createElement('option');
-    o.value = k; o.textContent = `${t.emoji} ${t.name}`;
-    typeSel.appendChild(o);
+  function buildTypeSelect() {
+    const keep = typeSel.value || 'ball';
+    typeSel.innerHTML = '';
+    for (const [k, t] of Object.entries(TYPES)) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = `${t.emoji} ${t.name}`;
+      typeSel.appendChild(o);
+    }
+    typeSel.value = TYPES[keep] ? keep : 'ball';
   }
-  typeSel.value = 'ball';
+  buildTypeSelect();
   $('giveTask').onclick = () => {
     const verb = $('taskVerb').value, type = typeSel.value, count = +$('taskCount').value;
     game.giveTask({ text: taskTextFor(verb, type), verb, type, count, auto: true });
@@ -184,7 +194,7 @@
   const needShort = { fullness: '🍖', hydration: '💧', energy: '⚡', warmth: '🔥', fun: '🎾', health: '❤️' };
   function renderBrain() {
     const k = game.brain.knowledge();
-    const types = Object.keys(k).sort((a, b) => k[b].reduce((s, x) => s + x.n, 0) - k[a].reduce((s, x) => s + x.n, 0));
+    const types = Object.keys(k).filter(t => typeInfo(t)).sort((a, b) => k[b].reduce((s, x) => s + x.n, 0) - k[a].reduce((s, x) => s + x.n, 0));
     const el = $('brain');
     if (!types.length) { el.innerHTML = '<div class="empty">Nothing yet — Pip is still figuring things out.</div>'; }
     else {
@@ -194,8 +204,8 @@
           const effs = NEEDS.filter(n => Math.abs(e.d[n] || 0) >= 2).map(n => `${needShort[n]}${e.d[n] > 0 ? '+' : ''}${Math.round(e.d[n])}`);
           const score = NEEDS.reduce((s, n) => s + (e.d[n] || 0) * (n === 'health' ? 3 : n === 'energy' && e.d[n] < 0 ? 0.3 : 1), 0);
           const cls = (e.d.health || 0) < -2 || score < -3 ? 'bad' : score > 4 ? 'good' : '';
-          const saw = (e.book ? '📖 ' : '') + (e.seen && SEEN_ICON[e.seen] ? SEEN_ICON[e.seen] + ' ' : '');
-          return `<span class="chip ${cls}" title="${e.book ? 'read about it in a book' : 'tried ' + e.n + '×'}">${e.verb} ${saw}${effs.length ? effs.join(' ') : (saw ? '' : '· nothing')}</span>`;
+          const saw = (e.told ? '💬 ' : e.book ? '📖 ' : '') + (e.seen && SEEN_ICON[e.seen] ? SEEN_ICON[e.seen] + ' ' : '');
+          return `<span class="chip ${cls}" title="${e.told ? 'you told Pip this' : e.book ? 'read about it in a book' : 'tried ' + e.n + '×'}">${e.verb} ${saw}${effs.length ? effs.join(' ') : (saw ? '' : '· nothing')}</span>`;
         }).join('');
         return `<div class="row"><span class="e" title="${T.name}">${T.emoji}</span><div>${chips}</div></div>`;
       }).join('');
@@ -210,6 +220,67 @@
       return parts.length ? `<span class="chip good">"${escapeHtml(w)}" → ${parts.join(' + ')}</span>` : `<span class="chip">"${escapeHtml(w)}" → ?</span>`;
     }).join('') : '<div class="empty">Give Pip tasks to teach it words.</div>';
   }
+
+  // ---------- talking with Pip ----------
+  let chatSig = null;
+  function renderChat() {
+    const q = game.question;
+    const sig = game.chat.length + ':' + (game.chat.length ? game.chat[game.chat.length - 1].text : '') + ':' + (q ? q.text : '');
+    if (sig === chatSig) return;
+    chatSig = sig;
+    const el = $('chat');
+    el.innerHTML = game.chat.length ? game.chat.slice(-14).map(m => `<li class="${m.from === 'pip' ? 'pip' : 'you'}">${m.from === 'pip' ? '🦎 ' : ''}${escapeHtml(m.text)}</li>`).join('')
+      : '<li class="empty"><span class="empty">Pip hasn\'t asked for anything yet.</span></li>';
+    el.scrollTop = el.scrollHeight;
+    $('quick').innerHTML = q ? q.options.map((o, i) => `<button type="button" data-i="${i}">${escapeHtml(o.label)}</button>`).join('') : '';
+    $('chatPanel').classList.toggle('asking', !!q);
+    $('chatText').placeholder = q && q.kind === 'word' ? 'Explain it, e.g. "play with the ball"' : 'Say something to Pip…';
+  }
+  $('quick').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { game.answerOption(+b.dataset.i); renderChat(); } });
+  $('chatForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const t = $('chatText').value.trim();
+    if (!t) return;
+    $('chatText').value = '';
+    game.say(t);
+    renderChat();
+  });
+
+  // ---------- make your own thing ----------
+  const LEVELS = [['nothing', 'nothing happens'], ['good', 'good'], ['great', 'great'], ['bad', 'it hurts']];
+  $('mkDoes').innerHTML = VERBS.map(v => `<label>If Pip tries to ${v === 'play' ? 'play with' : v === 'bask' ? 'bask on' : v === 'rest' ? 'rest on' : v === 'drink' ? 'drink' : 'eat'} it
+    <select id="mk_${v}">${LEVELS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>`).join('');
+  function renderCustomList() {
+    $('mkList').innerHTML = game.custom.map(d => `<span class="chip">${escapeHtml(d.emoji)} ${escapeHtml(d.name)}<button type="button" data-key="${d.key}" title="Delete this kind of thing" aria-label="Delete ${escapeHtml(d.name)}">✕</button></span>`).join('');
+  }
+  $('mkList').addEventListener('click', e => { const b = e.target.closest('button'); if (b) game.removeCustom(b.dataset.key); });
+  $('mkRandom').onclick = () => {
+    const r = a => a[Math.floor(Math.random() * a.length)];
+    $('mkShape').value = r(['ball', 'box', 'cone', 'cylinder', 'blob', 'star']);
+    $('mkColor').value = '#' + [0, 0, 0].map(() => (60 + Math.floor(Math.random() * 180)).toString(16)).join('');
+    $('mkSize').value = r(['10', '15', '22']);
+    for (const v of VERBS) $('mk_' + v).value = r(['nothing', 'nothing', 'nothing', 'good', 'great', 'bad']);
+    $('mkMoves').checked = Math.random() < 0.25;
+    if (!$('mkName').value) $('mkName').value = r(['wibble', 'zonk', 'mystery', 'blorp', 'gizmo', 'thingy']);
+    if (!$('mkEmoji').value) $('mkEmoji').value = r(['❔', '🎁', '🔮', '🧩', '🪀']);
+  };
+  $('mkCreate').onclick = () => {
+    const name = $('mkName').value.trim();
+    if (!name) { $('mkName').focus(); return; }
+    const does = {};
+    for (const v of VERBS) does[v] = $('mk_' + v).value;
+    const key = game.addCustom({
+      name, emoji: $('mkEmoji').value.trim() || '❔', shape: $('mkShape').value, color: $('mkColor').value, size: +$('mkSize').value,
+      moves: $('mkMoves').checked, consumable: $('mkGone').checked || (does.eat !== 'nothing' && does.eat !== 'bad' && $('mkGone').checked), does,
+    });
+    $('mkName').value = ''; $('mkEmoji').value = '';
+    setTool(key);
+    game.addLog(`(You made a new thing: ${TYPES[key].emoji} ${TYPES[key].name}. Click in the terrarium to place it.)`, 'task');
+    save();
+  };
+  function onTypesChanged() { buildPalette(); buildTypeSelect(); renderCustomList(); }
+  game.on('types', onTypesChanged);
+  renderCustomList();
 
   // ---------- settings ----------
   $('autoFeeder').checked = game.world.autoFeeder;
@@ -235,7 +306,7 @@
     $('autoFeeder').checked = game.world.autoFeeder;
     $('curiosity').value = game.brain.curiosity;
     logLen = -1; taskSig = null;
-    renderTask(); renderBrain();
+    renderTask(); renderBrain(); onTypesChanged(); chatSig = null;
     save();
   }
 
@@ -252,6 +323,7 @@
     renderer.draw(game, ui, dt);
     renderNeeds();
     renderLog();
+    renderChat();
     $('thought').textContent = game.lizard.thought;
     $('mood').textContent = game.lizard.overallMood();
     if (document.activeElement !== nameEl) nameEl.textContent = game.lizard.name;

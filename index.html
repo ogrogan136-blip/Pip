@@ -39,6 +39,27 @@
         <h2>Add things to Pip's world</h2>
         <p class="hint">Pick something, then click in the terrarium to place it. Pip doesn't know what anything is for, not even the book shop. It has to work that out itself.</p>
         <div class="palette" id="palette"></div>
+        <details class="maker" id="maker">
+          <summary>＋ Make your own thing</summary>
+          <p class="hint">Invent something new and decide what it secretly does. Pip still has to find out for itself.</p>
+          <div class="maker-grid">
+            <label>Name <input id="mkName" type="text" maxlength="18" placeholder="e.g. cheese"></label>
+            <label>Icon <input id="mkEmoji" type="text" maxlength="4" placeholder="🧀"></label>
+            <label>Shape <select id="mkShape"><option value="ball">ball</option><option value="box">box</option><option value="cone">cone</option><option value="cylinder">cylinder</option><option value="blob">blob</option><option value="star">star</option></select></label>
+            <label>Colour <input id="mkColor" type="color" value="#f2c744"></label>
+            <label>Size <select id="mkSize"><option value="10">small</option><option value="15" selected>medium</option><option value="22">big</option></select></label>
+          </div>
+          <div class="maker-grid" id="mkDoes"></div>
+          <div class="tool-row">
+            <label class="check"><input type="checkbox" id="mkMoves"> Moves around</label>
+            <label class="check"><input type="checkbox" id="mkGone"> Gone when eaten</label>
+          </div>
+          <div class="tool-row">
+            <button id="mkRandom" type="button">🎲 Surprise me</button>
+            <button id="mkCreate" type="button" class="primary">Create</button>
+          </div>
+          <div id="mkList" class="mk-list"></div>
+        </details>
         <div class="tool-row">
           <label class="check"><input type="checkbox" id="autoFeeder"> Auto-feeder (drops food now and then)</label>
           <label class="check"><input type="checkbox" id="showIntent" checked> Show where Pip is heading</label>
@@ -50,6 +71,17 @@
       <div class="panel">
         <h2>How Pip feels</h2>
         <div id="needs" class="needs"></div>
+      </div>
+
+      <div class="panel" id="chatPanel">
+        <h2>Talk with Pip</h2>
+        <ol id="chat" class="chat" aria-live="polite"></ol>
+        <div id="quick" class="quick"></div>
+        <form id="chatForm" class="task-builder">
+          <input id="chatText" type="text" maxlength="140" placeholder="Say something to Pip…" aria-label="Message to Pip" autocomplete="off">
+          <button class="primary" type="submit">Send</button>
+        </form>
+        <p class="hint">Pip asks when it wants or wonders about something. You can also just tell it things: "you can eat the berry", "don't touch the cactus", "here, have a ball".</p>
       </div>
 
       <div class="panel">
@@ -111,6 +143,7 @@
   <script src="js/world.js"></script>
   <script src="js/brain.js"></script>
   <script src="js/lizard.js"></script>
+  <script src="js/talk.js"></script>
   <script src="js/game.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
   <script src="js/render3d.js"></script>

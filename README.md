@@ -17,12 +17,15 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - **Give tasks**, like "play with the ball ×3" or "visit the rock". Pip doesn't understand words at first. It learns what they mean from which attempts work, then combines words it knows for new tasks.
 - **Teach your own tasks** in plain words ("go to bed on the log"). Press **🍬 Good Pip!** when it gets it right, or **✋ No!** when it doesn't.
 - **Train behaviour:** Good / No work any time, on whatever Pip just did. Click Pip to pet it.
+- **Talk with Pip:** it asks you when it wants or wonders about something. Answer with the buttons or type ("you can eat the berry", "don't touch the cactus", "here, have a ball").
+- **Make your own things:** invent a new object, choose its look and what it secretly does, and place it.
 - Speed up time (3×, 10×) to watch it learn faster, change its curiosity, or reset its memory.
 
 ## Code
 - `js/world.js`: the terrarium and its hidden rules (what everything really does)
 - `js/brain.js`: needs, learning, word learning, decision-making
 - `js/lizard.js`: body, senses, memory of where things are, carrying out plans
+- `js/talk.js`: Pip's questions, understanding replies, custom things
 - `js/game.js`: tasks, training, saving
 - `js/render3d.js`: the 3D terrarium (three.js)
 - `js/ui.js`: the page and controls
