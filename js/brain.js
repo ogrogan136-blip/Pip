@@ -32,11 +32,12 @@ class Brain {
     this.seen = {};      // type -> first time seen (sim seconds)
     this.stats = { actions: 0, tasksDone: 0, discoveries: 0 };
     this.curiosity = 1;  // personality: how adventurous Pip is
+    this.satedUntil = 0; // after experimenting, curiosity takes a while to build up again
     if (data) Object.assign(this, data);
   }
 
   toJSON() {
-    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity };
+    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil };
   }
 
   key(t, v) { return t + ':' + v; }
@@ -76,9 +77,17 @@ class Brain {
   }
 
   // Expected value of doing verb to type, from what Pip has learned.
+  // Worst hurt Pip has had from a thing, whatever it was doing to it.
+  danger(t) {
+    let worst = 0;
+    for (const v of VERBS) { const e = this.known(t, v); if (e) worst = Math.min(worst, e.d.health || 0); }
+    return worst;
+  }
+
   expectedValue(t, v, needs, weights) {
     const e = this.known(t, v);
-    if (!e) return 0;
+    // Never tried this? If the thing has hurt me before, assume it might again.
+    if (!e) return weights.health * 0.7 * this.danger(t) / 30;
     let val = 0;
     for (const n of NEEDS) {
       let d = e.d[n] || 0;
@@ -89,11 +98,40 @@ class Brain {
     return val / 30;
   }
 
-  curiosityBonus(t, v, needs) {
+  satisfyCuriosity(now) { this.satedUntil = now + 30 + Math.random() * 30; }
+
+  // 0..1: how ready Pip is to experiment again
+  curiosityReadiness(now) {
+    if (!now || now >= this.satedUntil) return 1;
+    return 0.25;
+  }
+
+  curiosityBonus(t, v, needs, now, desperation = 0) {
     const e = this.known(t, v);
     const n = e ? e.n : 0;
     const bored = (100 - needs.fun) / 100;
-    return this.curiosity * (0.35 + 0.9 * bored) / (1 + n * n * 3);
+    if (!e && this.danger(t) < -3) return 0; // not curious about things that hurt
+    const idle = this.curiosityReadiness(now) * this.curiosity * (0.15 + 0.55 * bored);
+    return (idle + desperation) / (1 + n * n * 3);
+  }
+
+  // When Pip badly needs something and knows nothing nearby that helps,
+  // it gets desperate and tries new things (no matter how sated its curiosity is).
+  // Instinct: Pip knows which *action* helps each need (thirsty → drink),
+  // but has to learn which *things* to do it with.
+  desperation(lizard, weights) {
+    const types = new Set([...lizard.memory.values()].map(m => m.type));
+    const d = {};
+    for (const need of ['fullness', 'hydration', 'warmth', 'energy']) {
+      if (weights[need] < 0.7) continue;
+      let solved = false;
+      for (const [k, e] of Object.entries(this.effects)) {
+        const t = k.split(':')[0];
+        if ((e.d[need] || 0) >= 8 && (types.has(t) || t === 'ground')) { solved = true; break; }
+      }
+      if (!solved) d[INSTINCT[need]] = Math.min(1.1, 0.5 * (weights[need] - 0.5));
+    }
+    return d;
   }
 
   // ---------- learning words ----------
@@ -146,17 +184,24 @@ class Brain {
 
   // ---------- deciding what to do ----------
   // Returns a plan: { kind:'act'|'wander', objId, type, verb, x, y, reason, thought, score }
-  decide(lizard, world, task) {
+  decide(lizard, world, task, now) {
     const needs = lizard.needs;
     const weights = this.needWeights(needs);
     const candidates = [];
     const taskWords = task ? task.words : null;
+    const desperateFor = this.desperation(lizard, weights);
+    let desperate = 0;
+    for (const [v, val] of Object.entries(desperateFor)) {
+      // Something nearby I haven't tried this with yet? Try that before searching further away.
+      const untried = [...lizard.memory.values()].some(m => !this.known(m.type, v) && this.danger(m.type) >= -3);
+      desperate = Math.max(desperate, untried ? val * 0.2 : val);
+    }
 
     const consider = (mem, t, v) => {
       const d = mem ? dist(lizard.x, lizard.y, mem.x, mem.y) : 0;
       const parts = {
         need: this.expectedValue(t, v, needs, weights),
-        curious: this.curiosityBonus(t, v, needs),
+        curious: this.curiosityBonus(t, v, needs, now, desperateFor[v] || 0),
         praise: 0.3 * (this.praise[this.key(t, v)] || 0),
         task: 0,
         travel: -(d / 700) * (0.4 + (100 - needs.energy) / 120),
@@ -164,7 +209,8 @@ class Brain {
       if (taskWords) {
         const belief = this.taskBelief(taskWords, t, v);
         const failedHere = task.tried[this.key(t, v)] || 0;
-        parts.task = 2.4 * belief / (1 + failedHere * 1.5);
+        // "Is this what my human means?" — an urge to try things for the task
+        parts.task = 2.4 * belief / (1 + failedHere * 1.5) + (this.danger(t) < -3 ? 0 : 0.45 / (1 + failedHere * 3));
         // a task makes Pip a little more willing to experiment
         parts.curious *= 0.6;
       }
@@ -178,7 +224,11 @@ class Brain {
 
     // Wandering: explore to find new things. More appealing when nothing known is useful.
     const unseenBias = Object.keys(TYPES).length - Object.keys(this.seen).length > 0 ? 0.1 : 0;
-    candidates.push({ kind: 'wander', score: 0.12 + unseenBias + 0.2 * this.curiosity * (100 - needs.fun) / 100, parts: { curious: 0.2 } });
+    const ready = this.curiosityReadiness(now);
+    // ...and go searching when it needs something it doesn't know where to find
+    candidates.push({ kind: 'wander', search: desperate > 0, score: ready * (0.06 + unseenBias + 0.15 * this.curiosity * (100 - needs.fun) / 100) + desperate * 1.2, parts: { curious: 0.2 } });
+    // Sitting still: lizards spend a lot of time just watching the world.
+    candidates.push({ kind: 'idle', score: task || desperate > 0 ? 0.05 : 0.26, parts: {} });
 
     // Softmax choice among the good options (a bit of randomness = personality)
     candidates.sort((a, b) => b.score - a.score);
@@ -195,6 +245,7 @@ class Brain {
 
   reasonFor(c) {
     if (c.kind === 'wander') return 'explore';
+    if (c.kind === 'idle') return 'idle';
     let best = 'need', bv = -Infinity;
     for (const k of ['need', 'curious', 'praise', 'task']) if (c.parts[k] > bv) { bv = c.parts[k]; best = k; }
     return best;
@@ -217,6 +268,13 @@ class Brain {
     };
     const tn = this.topNeed(lizard.needs, weights);
     const pre = tn ? needLine[tn] + ' ' : '';
+    if (c.kind === 'idle') {
+      return pick([
+        'Just sitting here, watching the world go by. 🦎', 'Mmm. Nice and quiet. 😌', 'Thinking lizard thoughts… 💭',
+        'I\'ll stay still for a bit. 🪷', 'Watching… waiting… 👀', 'Hmm, what should I do next? 🤔',
+      ]);
+    }
+    if (c.kind === 'wander' && c.search) return `${pre}I need to find something that helps. Searching… 🔎`;
     if (c.kind === 'wander') {
       return pick([
         pre + 'Let\'s go exploring. 🧭', pre + 'I wonder what\'s over there… 👀',
@@ -286,6 +344,8 @@ class Brain {
     return byType;
   }
 }
+
+const INSTINCT = { fullness: 'eat', hydration: 'drink', warmth: 'bask', energy: 'rest' };
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 

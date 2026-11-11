@@ -32,7 +32,7 @@ let done = 0, t0;
 for (let i = 0; i < 4; i++) {
   g2.giveTask({ text: 'play with the ball', verb: 'play', type: 'ball', count: 1 });
   t0 = g2.world.time;
-  while (g2.task && g2.world.time - t0 < 400) g2.step(1 / 30);
+  while (g2.task && g2.world.time - t0 < 600) g2.step(1 / 30);
   if (!g2.task) done++;
   console.log('task', i, g2.task ? 'not done' : 'done in ' + Math.round(g2.world.time - t0) + 's');
   g2.task = null;

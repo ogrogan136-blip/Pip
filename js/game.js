@@ -43,7 +43,7 @@ class Game {
     this.task = new Task(opts);
     this.addLog(`📋 New task: "${this.task.text}"${this.task.count > 1 ? ` ×${this.task.count}` : ''}`, 'task');
     // drop what it's doing and think about the task
-    if (this.lizard.state === 'moving' || this.lizard.state === 'pausing') this.lizard.state = 'deciding';
+    if (['moving', 'pausing', 'idling', 'considering'].includes(this.lizard.state)) this.lizard.state = 'deciding';
     this.emit('task');
   }
 

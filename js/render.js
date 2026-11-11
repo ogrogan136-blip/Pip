@@ -232,8 +232,10 @@ class Renderer {
     let icon = null;
     const p = L.plan;
     if (L.state === 'fainted') return;
-    if (L.state === 'moving' && p) {
+    if (L.state === 'idling') icon = '💭';
+    else if ((L.state === 'moving' || L.state === 'considering') && p) {
       if (p.kind === 'wander') icon = '🧭';
+      else if (p.kind === 'idle') icon = '💭';
       else {
         const T = typeInfo(p.type);
         icon = VERB_INFO[p.verb].icon + (p.type === 'ground' ? '' : T.emoji) + (p.reason === 'curious' ? '?' : p.reason === 'task' ? '📋' : '');

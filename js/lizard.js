@@ -57,7 +57,7 @@ class Lizard {
 
   maxSpeed() {
     const warm = clamp(this.needs.warmth / 60, 0, 1);
-    let s = 95 * (0.35 + 0.65 * warm);
+    let s = 75 * (0.35 + 0.65 * warm);
     if (this.needs.energy < 12) s *= 0.55;
     return s;
   }
@@ -93,7 +93,7 @@ class Lizard {
         const T = TYPES[fresh.type];
         this.think(`Ooh! What's that ${T.emoji}? I've never seen one before! 👀`, 'discover');
         this.setMood('curious');
-        this.state = 'pausing'; this.timer = 0.8; this.speed = 0;
+        this.state = 'pausing'; this.timer = 2.5; this.speed = 0;
       }
     }
 
@@ -104,7 +104,7 @@ class Lizard {
 
     switch (this.state) {
       case 'deciding': {
-        this.plan = brain.decide(this, world, task);
+        this.plan = brain.decide(this, world, task, world.time);
         this.misses = 0; this.moveTime = 0;
         if (this.plan.kind === 'wander') {
           const a = Math.random() * Math.PI * 2, r = 120 + Math.random() * 260;
@@ -112,7 +112,24 @@ class Lizard {
           this.plan.y = clamp(this.y + Math.sin(a) * r, 40, WORLD_H - 40);
         }
         this.think(this.plan.thought, this.plan.reason);
-        this.state = 'moving';
+        if (this.plan.kind === 'idle') { this.state = 'idling'; this.timer = 5 + Math.random() * 8; this.speed = 0; break; }
+        // take a moment to think before setting off
+        this.state = 'considering'; this.timer = 1.2 + Math.random() * 1.5;
+        if (this.plan.x !== undefined) this.lookAt = Math.atan2(this.plan.y - this.y, this.plan.x - this.x);
+        break;
+      }
+      case 'considering':
+      case 'idling': {
+        this.speed = Math.max(0, this.speed - 200 * dt);
+        if (this.state === 'considering' && this.lookAt !== undefined) {
+          let diff = this.lookAt - this.heading;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          this.heading += clamp(diff, -2 * dt, 2 * dt);
+        }
+        this.moveBody(dt);
+        this.timer -= dt;
+        if (this.timer <= 0) this.state = this.state === 'considering' ? 'moving' : 'deciding';
         break;
       }
       case 'moving': {
@@ -127,7 +144,7 @@ class Lizard {
         const d = dist(this.x, this.y, p.x, p.y);
         if (p.kind === 'act' && p.type === 'ground') { this.startAction(null, p); break; }
         if (d < reachDist) {
-          if (p.kind === 'wander') { this.state = 'pausing'; this.timer = 0.6 + Math.random(); this.speed = 0; break; }
+          if (p.kind === 'wander') { this.state = 'pausing'; this.timer = 1.5 + Math.random() * 2; this.speed = 0; break; }
           if (!obj) {
             this.memory.delete(p.objId);
             this.think(`Huh? The ${TYPES[p.type].emoji} isn't here anymore. 🤨`, 'meh');
@@ -180,7 +197,7 @@ class Lizard {
     this.state = 'acting';
     this.speed = 0;
     this.actObj = obj;
-    this.timer = plan.verb === 'rest' ? 4 : plan.verb === 'bask' ? 3 : 1.5;
+    this.timer = { rest: 8, bask: 6, play: 4, drink: 3, eat: 2.5 }[plan.verb] || 3;
     if (obj) { this.heading = Math.atan2(obj.y - this.y, obj.x - this.x); obj.held = true; }
   }
 
@@ -196,8 +213,9 @@ class Lizard {
     this.setMood(r.mood);
     this.lastAction = { type: p.type, verb: p.verb, time: world.time };
     if (this.onAction) this.onAction(p.type, p.verb, delta);
+    if (p.reason === 'curious') brain.satisfyCuriosity(world.time);
     this.state = 'pausing';
-    this.timer = 1.2;
+    this.timer = 2.5 + Math.random() * 2;
   }
 
   steer(dt, tx, ty, world, brain) {
