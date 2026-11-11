@@ -57,7 +57,7 @@ class Lizard {
 
   maxSpeed() {
     const warm = clamp(this.needs.warmth / 60, 0, 1);
-    let s = 75 * (0.35 + 0.65 * warm);
+    let s = 58 * (0.35 + 0.65 * warm);
     if (this.needs.energy < 12) s *= 0.55;
     return s;
   }
@@ -99,6 +99,7 @@ class Lizard {
 
     if (this.needs.health <= 0 && this.state !== 'fainted') {
       this.state = 'fainted'; this.timer = 6;
+      this.inside = false;
       this.think(`${this.name} fainted! 😵 I need to take better care of myself…`, 'bad');
     }
 
@@ -112,9 +113,9 @@ class Lizard {
           this.plan.y = clamp(this.y + Math.sin(a) * r, 40, WORLD_H - 40);
         }
         this.think(this.plan.thought, this.plan.reason);
-        if (this.plan.kind === 'idle') { this.state = 'idling'; this.timer = 8 + Math.random() * 10; this.speed = 0; break; }
+        if (this.plan.kind === 'idle') { this.state = 'idling'; this.timer = 12 + Math.random() * 20; this.speed = 0; break; }
         // take a moment to think before setting off
-        this.state = 'considering'; this.timer = 1.5 + Math.random() * 2;
+        this.state = 'considering'; this.timer = 2 + Math.random() * 2.5;
         if (this.plan.x !== undefined) this.lookAt = Math.atan2(this.plan.y - this.y, this.plan.x - this.x);
         break;
       }
@@ -198,13 +199,17 @@ class Lizard {
     this.state = 'acting';
     this.speed = 0;
     this.actObj = obj;
-    this.timer = { rest: 8, bask: 6, play: 4, drink: 3, eat: 2.5, read: 9 }[plan.verb] || 3;
+    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12 }[plan.verb] || 4;
+    this.longSleep = plan.verb === 'rest' && this.needs.energy < 40;
+    if (this.longSleep) this.timer = 26; // a proper sleep
+    this.inside = !!(obj && TYPES[obj.type].building && ['read', 'play', 'rest'].includes(plan.verb));
     if (obj) { this.heading = Math.atan2(obj.y - this.y, obj.x - this.x); obj.held = !TYPES[obj.type].building; }
   }
 
   finishAction(world, brain, task) {
     const p = this.plan;
     const obj = this.actObj && world.get(this.actObj.id);
+    this.inside = false;
     if (obj) obj.held = false;
     if (p.type !== 'ground' && !obj) { this.state = 'deciding'; return; }
     let delta, r;
@@ -218,8 +223,15 @@ class Lizard {
       brain.satisfyCuriosity(world.time);
     } else {
       delta = world.interact(this, obj, p.verb);
+      if (p.verb === 'rest' && this.longSleep) { const extra = 20; this.needs.energy = clamp(this.needs.energy + extra, 0, 100); }
       const first = brain.learnEffect(p.type, p.verb, delta);
       r = brain.reactionFor(p.type, p.verb, delta, first);
+      // Nobody told Pip what a book shop is for. Poking around inside is how it finds out.
+      if (TYPES[p.type] && TYPES[p.type].building && p.verb === 'play' && !brain.known(p.type, 'read')) {
+        brain.learnEffect(p.type, 'read', { fun: 6 });
+        const found = brain.readBook(this, world, task, p.desperateFor || {});
+        r = { mood: 'happy', text: `There are things with pages in here… I looked inside one. ${found} Wait — I can find things out in here! 🤯` };
+      }
     }
     this.think(r.text, r.mood);
     this.setMood(r.mood);
@@ -227,7 +239,7 @@ class Lizard {
     if (this.onAction) this.onAction(p.type, p.verb, delta);
     if (p.reason === 'curious') brain.satisfyCuriosity(world.time);
     this.state = 'pausing';
-    this.timer = 4 + Math.random() * 3;
+    this.timer = 6 + Math.random() * 5;
   }
 
   steer(dt, tx, ty, world, brain) {
@@ -281,10 +293,11 @@ class Lizard {
   updateNeeds(dt, world) {
     const n = this.needs;
     const resting = this.state === 'acting' && this.plan && this.plan.verb === 'rest';
-    n.fullness -= 0.32 * dt;
-    n.hydration -= 0.42 * dt;
-    n.energy -= (0.12 + (this.speed > 5 ? 0.14 : 0) + (world.isNight ? 0.12 : 0)) * dt * (resting ? 0 : 1);
-    n.fun -= 0.28 * dt;
+    // needs drop slowly, so Pip isn't constantly chasing them
+    n.fullness -= 0.11 * dt;
+    n.hydration -= 0.14 * dt;
+    n.energy -= (0.05 + (this.speed > 5 ? 0.06 : 0) + (world.isNight ? 0.06 : 0)) * dt * (resting ? 0 : 1);
+    n.fun -= 0.09 * dt;
     // cold-blooded: body temperature drifts toward the surroundings
     const amb = world.ambientAt(this.x, this.y);
     n.warmth += (amb - n.warmth) * 0.03 * dt;

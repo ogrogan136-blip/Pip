@@ -66,6 +66,7 @@ const EFFECTS = {
   ball:     { play: { fun: 32, energy: -6 } },
   cactus:   { eat: { health: -18, fun: -8 }, play: { health: -12 }, rest: { health: -10 }, bask: { health: -8 }, drink: { health: -6 } },
   ground:   { rest: { energy: 14 } },
+  bookstore: { play: { fun: 8 }, rest: { energy: 10 }, eat: { fun: -4 } },
 };
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);

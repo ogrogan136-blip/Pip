@@ -621,7 +621,7 @@ class Renderer3D {
     this.hemi.intensity = 0.2 + 0.35 * d;
     this.hemi.color.setHSL(0.6 - d * 0.5, 0.4, 0.5 + 0.35 * d);
 
-    const inside = lizard.state === 'acting' && lizard.plan && lizard.plan.verb === 'read';
+    const inside = lizard.state === 'acting' && lizard.plan && lizard.inside;
     this.reading = inside ? lizard.plan.objId : null;
     this.syncObjects(world);
     this.lizardGroup.visible = !inside;
@@ -661,7 +661,7 @@ class Renderer3D {
       if (p.kind === 'wander') icon = '🧭';
       else if (p.kind === 'idle') icon = '💭';
       else icon = VERB_INFO[p.verb].icon + (p.type === 'ground' ? '' : typeInfo(p.type).emoji) + (p.reason === 'curious' ? '?' : p.reason === 'task' ? '📋' : '');
-    } else if (L.state === 'acting' && p) icon = p.verb === 'read' ? '📖 …' : VERB_INFO[p.verb].icon;
+    } else if (L.state === 'acting' && p) icon = p.verb === 'read' ? '📖 …' : L.inside ? '…' : VERB_INFO[p.verb].icon;
     else if (L.mood === 'happy') icon = '💚';
     else if (L.mood === 'curious') icon = '❓';
     if (L.state === 'fainted') icon = '💫';

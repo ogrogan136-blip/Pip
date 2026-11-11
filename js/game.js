@@ -13,6 +13,8 @@ class Game {
     // older saves: the book shop is new, so build one
     if (save && !save.bookshop && !this.world.objects.some(o => o.type === 'bookstore')) this.world.add('bookstore', 470, 85);
     this.brain = new Brain(save && save.brain);
+    // earlier versions told Pip what the book shop was for; now it has to find out itself
+    if (save && (save.v || 1) < 3) delete this.brain.effects['bookstore:read'];
     this.lizard = new Lizard(save && save.lizard);
     this.task = save && save.task ? new Task(save.task) : null;
     this.taskHistory = (save && save.taskHistory) || [];
@@ -127,6 +129,6 @@ class Game {
 
   // ---- save / load ----
   toJSON() {
-    return { v: 2, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory };
+    return { v: 3, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory };
   }
 }

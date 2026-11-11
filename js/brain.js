@@ -86,7 +86,7 @@ class Brain {
     }
     for (const t of Object.keys(this.seen)) {
       if (!TYPES[t] || TYPES[t].building) continue;
-      if (VERBS.some(v => !this.known(t, v))) return { kind: 'wonder', val: 0.45 };
+      if (VERBS.some(v => !this.known(t, v))) return { kind: 'wonder', val: 0.35 + 0.7 * (100 - lizard.needs.fun) / 100 };
     }
     return null;
   }
@@ -172,7 +172,7 @@ class Brain {
     return val / 30;
   }
 
-  satisfyCuriosity(now) { this.satedUntil = now + 60 + Math.random() * 60; }
+  satisfyCuriosity(now) { this.satedUntil = now + 90 + Math.random() * 90; }
 
   // 0..1: how ready Pip is to experiment again
   curiosityReadiness(now) {
@@ -300,12 +300,18 @@ class Brain {
         consider(mem, mem.type, 'read');
         const c = candidates[candidates.length - 1];
         c.q = q;
-        if (!this.known(mem.type, 'read')) { c.score += 0.4; c.parts.curious += 0.4; } // a whole building — what's in there?
+        const eRead = this.known(mem.type, 'read');
+        if (!eRead) candidates.pop(); // Pip doesn't know reading is a thing yet
         else {
+          // the more often books have helped, the more Pip trusts them
+          const trust = Math.min(1, 0.5 + 0.2 * eRead.n);
+          if (q) q.val *= trust;
           const ready = q && q.kind === 'wonder' ? this.curiosityReadiness(now) * this.curiosity : 1;
           c.score += -c.parts.curious + (q ? q.val * ready : 0.02);
           c.parts.curious = q ? q.val * ready : 0.02;
         }
+        // ...and like anything else, it can be sniffed, sat in, chewed on:
+        for (const v of VERBS) { consider(mem, mem.type, v); const k = candidates[candidates.length - 1]; if (!this.known(mem.type, v)) { k.score += k.parts.curious * 0.5; k.parts.curious *= 1.5; } }
         continue;
       }
       for (const v of VERBS) consider(mem, mem.type, v);
@@ -318,7 +324,7 @@ class Brain {
     // ...and go searching when it needs something it doesn't know where to find
     candidates.push({ kind: 'wander', search: desperate > 0, score: ready * (0.06 + unseenBias + 0.15 * this.curiosity * (100 - needs.fun) / 100) + desperate * 1.2, parts: { curious: 0.2 } });
     // Sitting still: lizards spend a lot of time just watching the world.
-    candidates.push({ kind: 'idle', score: task || desperate > 0 ? 0.05 : 0.32, parts: {} });
+    candidates.push({ kind: 'idle', score: task || desperate > 0 ? 0.05 : 0.5, parts: {} });
 
     // Softmax choice among the good options (a bit of randomness = personality)
     candidates.sort((a, b) => b.score - a.score);
@@ -365,7 +371,6 @@ class Brain {
     const name = `${T.emoji} ${T.name}`;
     if (c.verb === 'read') {
       if (c.reason === 'task' && !(c.q && c.q.kind === 'word')) return `"${task.text}" — off to the ${name}.`;
-      if (!this.known(c.type, 'read')) return `What's in that little shop? 🤔`;
       if (c.q && c.q.kind === 'word') return `"${task.text}"? I don't know what that means. Maybe there's a book about it. 📖`;
       if (c.q && c.q.kind === 'need') return pick(['I don\'t know what would help. I\'ll go look it up.', 'There must be a book about this.']);
       return pick(['I\'ve been wondering about something. Time for a book. 📖', 'I feel like reading.', 'Let\'s see what I can find out at the book shop.']);

@@ -11,7 +11,7 @@ let failures = 0;
 const check = (ok, msg) => { console.log((ok ? 'PASS ' : 'FAIL ') + msg); if (!ok) failures++; };
 
 const g = new Game(null);
-run(g, 900);
+run(g, 3600);
 const k = g.brain.knowledge();
 const b = g.brain;
 console.log('actions', b.stats.actions, 'discoveries', b.stats.discoveries, 'needs', JSON.stringify(g.lizard.needs, (k, v) => typeof v === 'number' ? Math.round(v) : v));
@@ -21,18 +21,18 @@ check(g.lizard.needs.health > 30, 'stayed healthy');
 // After learning, Pip should prefer good actions over bad ones
 const counts = {};
 g.lizard.onAction = (t, v) => { counts[t + ':' + v] = (counts[t + ':' + v] || 0) + 1; g.handleAction(t, v); };
-run(g, 600);
+run(g, 1800);
 console.log('later actions', JSON.stringify(counts));
 check(!(counts['cactus:eat'] > 1), 'stopped eating cactus');
 
 // Task: Pip should learn "play with the ball"
 const g2 = new Game(null);
-run(g2, 200);
+run(g2, 600);
 let done = 0, t0;
 for (let i = 0; i < 4; i++) {
   g2.giveTask({ text: 'play with the ball', verb: 'play', type: 'ball', count: 1 });
   t0 = g2.world.time;
-  while (g2.task && g2.world.time - t0 < 600) g2.step(1 / 30);
+  while (g2.task && g2.world.time - t0 < 1200) g2.step(1 / 30);
   if (!g2.task) done++;
   console.log('task', i, g2.task ? 'not done' : 'done in ' + Math.round(g2.world.time - t0) + 's');
   g2.task = null;
