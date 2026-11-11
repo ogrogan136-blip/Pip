@@ -26,3 +26,5 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - `js/render.js`, `js/ui.js`: drawing and the page
 
 Headless learning test: `node tests/sim.js`
+
+To bundle everything into one HTML file: `node tools/build-single.js pip-single.html`

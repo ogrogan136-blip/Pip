@@ -72,10 +72,27 @@
       document.querySelectorAll('.speed button').forEach(x => x.classList.toggle('on', x === b));
     };
   }
-  $('pipName').onclick = () => {
-    const n = prompt('What should your lizard be called?', game.lizard.name);
-    if (n && n.trim()) { game.lizard.name = n.trim().slice(0, 20); save(); }
-  };
+  // Rename in place (pop-up dialogs aren't available everywhere)
+  const nameEl = $('pipName');
+  nameEl.onclick = () => { nameEl.contentEditable = 'true'; nameEl.focus(); document.getSelection().selectAllChildren(nameEl); };
+  nameEl.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); if (e.key === 'Escape') nameEl.textContent = game.lizard.name; nameEl.blur(); } });
+  nameEl.addEventListener('blur', () => {
+    nameEl.contentEditable = 'false';
+    const n = nameEl.textContent.trim().slice(0, 20);
+    if (n) { game.lizard.name = n; save(); }
+    nameEl.textContent = game.lizard.name;
+  });
+
+  // Two-click confirm for destructive buttons
+  function confirmClick(btn, label, action) {
+    const orig = btn.textContent;
+    let armed = null;
+    btn.onclick = () => {
+      if (armed) { clearTimeout(armed); armed = null; btn.textContent = orig; btn.classList.remove('confirming'); action(); return; }
+      btn.textContent = label; btn.classList.add('confirming');
+      armed = setTimeout(() => { armed = null; btn.textContent = orig; btn.classList.remove('confirming'); }, 3500);
+    };
+  }
 
   // ---------- needs ----------
   const needsEl = $('needs');
@@ -185,19 +202,17 @@
   $('showIntent').onchange = e => { ui.showIntent = e.target.checked; };
   $('curiosity').value = game.brain.curiosity;
   $('curiosity').oninput = e => { game.brain.curiosity = +e.target.value; };
-  $('resetBrain').onclick = () => {
-    if (!confirm(`Make ${game.lizard.name} forget everything it has learned?`)) return;
+  confirmClick($('resetBrain'), 'Click again to erase memories', () => {
     const s = JSON.parse(JSON.stringify(game));
     s.brain = null; s.lizard.memory = []; s.task = null; s.taskHistory = [];
     restart(s);
     game.addLog('Huh? Where am I? Everything feels new… 🦎', 'thought');
-  };
-  $('resetWorld').onclick = () => {
-    if (!confirm('Put the terrarium back to how it started? (Pip keeps its memories.)')) return;
+  });
+  confirmClick($('resetWorld'), 'Click again to reset the world', () => {
     const s = JSON.parse(JSON.stringify(game));
     s.world = null; s.lizard.memory = []; s.lizard.x = WORLD_W / 2; s.lizard.y = WORLD_H / 2;
     restart(s);
-  };
+  });
   function restart(s) {
     const listeners = game.listeners;
     game = new Game(s);
@@ -224,7 +239,7 @@
     renderLog();
     $('thought').textContent = game.lizard.thought;
     $('mood').textContent = game.lizard.overallMood();
-    $('pipName').textContent = game.lizard.name;
+    if (document.activeElement !== nameEl) nameEl.textContent = game.lizard.name;
     slowTimer += dt; saveTimer += dt;
     if (slowTimer > 0.5) {
       slowTimer = 0;
