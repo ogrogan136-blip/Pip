@@ -139,6 +139,11 @@ const Talk = {
       (b.asked = b.asked || {}).hut = 1;
       return this.ask({ kind: 'help', text: 'Sleeping on logs and sand isn\'t very comfy. Any ideas for a better place to sleep?', options: [{ label: '🛖 Build a cabin from a log and sticks', act: 'idea', idea: 'recipe:hut', also: ['break', 'craft'] }, { label: '🪺 Make a nest from sticks', act: 'idea', idea: 'recipe:nest', also: ['break', 'craft'] }] });
     }
+    // soaked
+    if (L.wet > 60 && !b.hasIdea('shelter') && !b.hasIdea('recipe:umbrella') && !b.asked?.rain) {
+      (b.asked = b.asked || {}).rain = 1;
+      return this.ask({ kind: 'help', text: 'I\'m soaking wet and grumpy. How do I stay dry when it rains? 😒', options: [{ label: '🏠 Go inside a building when it rains', act: 'idea', idea: 'shelter' }, { label: '🍃 Hold a big leaf over your head', act: 'idea', idea: 'recipe:umbrella', also: ['craft', 'break'] }] });
+    }
     // winter troubles
     const W = this.world;
     if (W.season === 'winter' && L.refill && L.refill.fullness && !b.hasIdea('stockpile') && !b.asked?.winter) {
@@ -229,7 +234,7 @@ const Talk = {
     else if (o.act === 'tell') this.pipSay(this.believe(q.type, o.verb || null, !!o.bad));
     else if (o.act === 'idea') {
       this.brain.addIdea(o.idea, 'you'); (o.also || []).forEach(i => this.brain.addIdea(i, 'you'));
-      this.pipSay(`Ooh, ${RECIPES[o.idea.slice(7)] ? RECIPES[o.idea.slice(7)].label : 'that'}! Why didn't I think of that? I'll try! 💡`);
+      this.pipSay(o.idea === 'shelter' ? 'Go inside when it rains! Of course. Why didn\'t I think of that? 💡' : `Ooh, ${RECIPES[o.idea.slice(7)] ? RECIPES[o.idea.slice(7)].label : 'that'}! Why didn't I think of that? I'll try! 💡`);
     }
     else if (o.act === 'suggest') {
       const key = createInvented(this, suggestedInvention(o.kind), true);

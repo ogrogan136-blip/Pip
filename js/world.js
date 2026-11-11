@@ -62,6 +62,7 @@ const TYPES = {
   bucket:   { emoji: '🪣', name: 'bucket', size: 12, hidden: true },
   store:    { emoji: '🏚️', name: 'food store', size: 26, building: true, hidden: true, words: ['store', 'shed', 'pantry', 'storage'] },
   stove:    { emoji: '🔥', name: 'stone stove', size: 22, heat: 210, heatPower: 80, hidden: true, words: ['stove', 'fire', 'heater'] },
+  umbrella: { emoji: '☂️', name: 'leaf umbrella', size: 14, hidden: true, words: ['umbrella', 'leaf'] },
   sweater:  { emoji: '🧥', name: 'woolly sweater', size: 12, hidden: true, words: ['sweater', 'jumper', 'clothes', 'coat'] },
   hut:      { emoji: '🛖', name: 'log cabin', size: 40, building: true, hidden: true, words: ['cabin', 'hut', 'house', 'home'] },
   bed:      { emoji: '🛏️', name: 'comfy bed', size: 20, hidden: true, words: ['bed'] },
@@ -95,6 +96,7 @@ const EFFECTS = {
   store:    { play: { fun: 2 } },
   stove:    { bask: { warmth: 30 }, rest: { energy: 8, warmth: 12 } },
   sweater:  { play: { fun: 4 } },
+  umbrella: { play: { fun: 4 } },
   hut:      { rest: { energy: 48, warmth: 6, fun: 3 }, play: { fun: 4 } },
   bed:      { rest: { energy: 75, fun: 8 }, play: { fun: 5 } },
   cotton:   { play: { fun: 6 }, eat: { fun: -3 } },
@@ -165,6 +167,12 @@ class World {
     this.objects.push(o);
     return o;
   }
+
+  // is there a roof over this spot? (inside or right by a building, or under the well's little roof)
+  underRoof(x, y) {
+    return this.objects.some(o => (o.type === 'hut' || o.type === 'store' || o.type === 'bookstore') ? dist(x, y, o.x, o.y) < 46 : o.type === 'water' ? dist(x, y, o.x, o.y) < 26 : false);
+  }
+  get raining() { return this.weather === 'rain' || this.weather === 'thunder'; }
 
   onGrass(x, y) { return this.objects.some(g => g.type === 'grass' && Math.abs(x - g.x) < MEADOW.w / 2 - 4 && y - g.y < MEADOW.h / 2 && g.y - y < MEADOW.h / 2 - 14 + meadowWave(x - g.x)); }
   wither(o, reason) {
@@ -394,6 +402,7 @@ class World {
 
 // Things that can be built, once Pip works out how.
 const RECIPES = {
+  umbrella: { needs: { stick: 1, lettuce: 1 }, makes: 'umbrella', label: 'a leaf umbrella' },
   store:   { needs: { stick: 4 }, makes: 'store', label: 'a food store' },
   stove:   { needs: { rock: 1, stick: 2 }, makes: 'stove', label: 'a stone stove' },
   sweater: { needs: { wool: 1 }, makes: 'sweater', label: 'a woolly sweater' },

@@ -149,6 +149,13 @@ function buildModel(type, o) {
       g.userData.fire = fire;
       break;
     }
+    case 'umbrella': {
+      add(mesh(cyl(0.9, 0.9, 38, 6), mat('#7a4f25'), 0, 19, 0));
+      const leaf = add(mesh(new THREE.SphereGeometry(26, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2.6), mat('#5fae3c', { roughness: 0.5, side: THREE.DoubleSide }), 0, 30, 0));
+      leaf.scale.set(1.2, 0.42, 1);
+      for (let i = 0; i < 6; i++) { const v = add(mesh(cyl(0.45, 0.45, 26, 4), mat('#3f7f2a'), Math.cos(i * 1.047) * 12, 37, Math.sin(i * 1.047) * 12)); v.rotation.set(Math.sin(i * 1.047) * 1.35, 0, -Math.cos(i * 1.047) * 1.35); }
+      break;
+    }
     case 'sweater': {
       const knit = mat('#b5443b', { roughness: 1 });
       add(mesh(new THREE.BoxGeometry(18, 3.5, 14), knit, 0, 1.8, 0));
@@ -679,7 +686,7 @@ class Renderer3D {
       m.position.copy(toV(o.x, o.y));
       if (o.carried) {
         m.position.y += o.lift || 0;
-        m.scale.setScalar(Math.min(1, 15 / T.size));
+        m.scale.setScalar(o.type === 'umbrella' ? 1 : Math.min(1, 15 / T.size));
         m.rotation.z = o.swing || 0;
         m.userData.grow = 1;
       } else if (m.userData.wasCarried) { m.scale.setScalar(1); m.rotation.z = 0; }
@@ -733,7 +740,11 @@ class Renderer3D {
     const flat = verb === 'bask' ? 0.75 : 1;
     const breathe = 1 + Math.sin(L.anim * (sleeping ? 2 : 4)) * 0.03;
     const faded = L.state === 'fainted';
-    this.skin.color.set(faded ? '#8a9a7a' : verb === 'bask' ? '#5cbf5f' : '#4fae58');
+    // soaked Pip looks darker and shinier, and drips
+    const wet = Math.min(1, (L.wet || 0) / 70);
+    this.skin.color.set(faded ? '#8a9a7a' : verb === 'bask' ? '#5cbf5f' : wet > 0.05 ? lerpColor('#4fae58', '#2f7a46', wet) : '#4fae58');
+    this.skin.roughness = 0.55 - wet * 0.4;
+    if (wet > 0.3 && Math.random() < wet * 0.25) { const di = 2 + Math.floor(Math.random() * 6); this.addParticle(toV(s[di].x, s[di].y, 6), '#9fd3ff', 0.8, 10, 0.5); }
 
     let mi = 0;
     for (let i = 0; i < SEGMENTS; i++) {

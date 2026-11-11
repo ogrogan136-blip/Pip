@@ -127,6 +127,7 @@ const BOOKS = {
     ['A woolly sweater keeps you warm in the cold.', { ideas: ['recipe:sweater'] }],
     ['But never wear a sweater in summer — you\'ll overheat!', { ideas: ['summerhot'] }],
     ['Thunderstorms are loud but they can\'t hurt you indoors.'],
+    ['Getting soaked is no fun! When it rains, go indoors, or hold a big leaf over your head.', { ideas: ['shelter', 'recipe:umbrella'] }],
   ] },
   rocks: { title: 'Rocks & Minerals', emoji: '🪨', pages: [
     ['Rocks are made of minerals squashed together.'],

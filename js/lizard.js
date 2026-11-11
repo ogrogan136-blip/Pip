@@ -21,6 +21,7 @@ class Lizard {
       this.x = data.x; this.y = data.y; this.heading = data.heading || 0;
       Object.assign(this.needs, data.needs || {});
       this.wearing = data.wearing || null;
+      this.wet = data.wet || 0;
       for (const m of data.memory || []) if (TYPES[m.type]) this.memory.set(m.id, m);
     }
     this.segs = [];
@@ -41,12 +42,13 @@ class Lizard {
     this.anim = 0;
     this.carrying = null;  // id of the object in Pip's mouth
     this.refill = {};      // needs Pip is busy topping back up
+    this.wet = 0;          // how soaked Pip is (0-100)
     this.onThought = null; // callback(text, kind)
     this.onAction = null;  // callback(type, verb, delta)
   }
 
   toJSON() {
-    return { name: this.name, x: this.x, y: this.y, heading: this.heading, needs: this.needs, wearing: this.wearing || null, memory: [...this.memory.values()] };
+    return { name: this.name, x: this.x, y: this.y, heading: this.heading, needs: this.needs, wearing: this.wearing || null, wet: Math.round(this.wet), memory: [...this.memory.values()] };
   }
 
   think(text, kind = 'thought') {
@@ -227,10 +229,10 @@ class Lizard {
     this.state = 'acting';
     this.speed = 0;
     this.actObj = obj;
-    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4, tinker: 10, stash: 3, wear: 4, unwear: 3 }[plan.verb] || 4;
+    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4, tinker: 10, stash: 3, wear: 4, unwear: 3, shelter: 25, putdown: 2 }[plan.verb] || 4;
     this.longSleep = plan.verb === 'rest' && this.needs.energy < 40;
     if (this.longSleep) this.timer = 26; // a proper sleep
-    this.inside = !!(obj && TYPES[obj.type].building && ['read', 'play', 'rest'].includes(plan.verb));
+    this.inside = !!(obj && TYPES[obj.type].building && ['read', 'play', 'rest', 'shelter'].includes(plan.verb));
     if (obj) { this.heading = Math.atan2(obj.y - this.y, obj.x - this.x); obj.held = !TYPES[obj.type].building; }
     // small things get picked up and used in Pip's mouth
     if (plan.verb === 'rest') { this.keepCarry = false; this.drop(this.worldRef); } // put things down before sleeping
@@ -320,7 +322,7 @@ class Lizard {
     const h = this.heading;
     o.x = this.x + Math.cos(h) * 20 + Math.cos(h + Math.PI / 2) * side;
     o.y = this.y + Math.sin(h) * 20 + Math.sin(h + Math.PI / 2) * side;
-    o.lift = this.state === 'holding' ? 16 + Math.sin(this.anim * 3) * 2 : 9;
+    o.lift = this.state === 'holding' ? 16 + Math.sin(this.anim * 3) * 2 : o.type === 'umbrella' ? 14 : 9;
     o.swing = using ? Math.sin(this.anim * 7) * 0.6 : 0;
     // brushes and brooms kick up dust when used
     const T = TYPES[o.type];
@@ -371,7 +373,7 @@ class Lizard {
       text = res ? res.text : 'Hmm.';
       mood = res && res.ok ? 'happy' : 'meh';
     } else if (p.verb === 'grab') {
-      if (obj) { this.pickUp(obj); this.keepCarry = true; text = obj.type === 'bucket' ? 'Got my bucket. 🪣' : `Got a ${TYPES[obj.type].emoji}. Off to the food store!`; mood = 'happy'; }
+      if (obj) { this.pickUp(obj); this.keepCarry = true; text = obj.type === 'bucket' ? 'Got my bucket. 🪣' : obj.type === 'umbrella' ? 'Got my umbrella. Now the rain can\'t get me! ☂️' : `Got a ${TYPES[obj.type].emoji}. Off to the food store!`; mood = 'happy'; }
       else text = 'Where did it go?';
     } else if (p.verb === 'stash') {
       const held = this.carrying && world.get(this.carrying);
@@ -380,6 +382,15 @@ class Lizard {
         world.remove(held.id); this.carrying = null; this.keepCarry = false;
         text = `Stored a ${TYPES[held.type].emoji} for winter. That's ${obj.contents.length} in my food store! 🏚️`; mood = 'happy';
       } else text = 'Hmm, I dropped it somewhere.';
+    } else if (p.verb === 'shelter') {
+      const first = !brain.skills.shelter;
+      brain.skill('shelter').n++; brain.skill('shelter').hits++;
+      text = first ? 'Ahh, it\'s nice and dry in here. Much better! ☺️' : world.raining ? 'Staying in until the rain stops. 🌧️' : 'The rain stopped! Back outside. 🌤️';
+      mood = 'happy';
+      if (world.raining) { this.state = 'acting'; this.timer = 25; this.inside = !!(obj && TYPES[obj.type].building); this.think(text, 'happy'); return; }
+    } else if (p.verb === 'putdown') {
+      this.keepCarry = false; this.drop(world);
+      text = 'Rain\'s stopped. I\'ll put my umbrella down. ☂️';
     } else if (p.verb === 'wear') {
       if (obj) { world.remove(obj.id); this.wearing = 'sweater'; text = 'Ahh, snug and warm in my sweater! 🧥'; mood = 'happy'; }
       else text = 'Where did my sweater go?';
@@ -504,6 +515,14 @@ class Lizard {
     const amb = world.ambientAt(this.x, this.y) + (this.wearing ? 18 : 0); // a sweater keeps Pip ~18° warmer
     n.warmth += (amb - n.warmth) * 0.03 * dt;
     if (n.warmth < 12) n.health -= 0.12 * dt; // dangerously cold
+    // rain: out in it, Pip gets soaked and grumpy; under a roof or an umbrella it stays dry
+    const held = this.carrying && world.get(this.carrying);
+    this.covered = this.inside || (held && held.type === 'umbrella') || world.underRoof(this.x, this.y);
+    if (world.raining && !this.covered) this.wet = Math.min(100, this.wet + dt * (world.weather === 'thunder' ? 8 : 6));
+    else this.wet = Math.max(0, this.wet - dt * (1.5 + world.heatAt(this.x, this.y) * 6));
+    if (this.wet > 25) { n.fun -= 0.3 * dt * (0.5 + this.wet / 100); n.warmth -= 0.06 * dt * this.wet / 100; }
+    if (this.wet > 35 && !this.grumbled && this.state !== 'acting') { this.grumbled = true; this.think(pick(['Ugh, I\'m getting soaked. 😒', 'Rain, rain, go away… I\'m all wet. 😒', 'Blech. Wet scales are the worst. 😒']), 'meh'); this.setMood('meh', 4); }
+    if (this.wet < 5) this.grumbled = false;
     if (n.fullness > 25 && n.hydration > 25 && n.warmth > 30) n.health += 0.25 * dt;
     if (n.fullness <= 1 || n.hydration <= 1) n.health -= 0.6 * dt;
     if (n.warmth > 97) n.health -= 0.3 * dt;
@@ -518,6 +537,7 @@ class Lizard {
   overallMood() {
     if (this.state === 'fainted') return '😵';
     if (this.state === 'acting' && this.plan && this.plan.verb === 'rest') return '😴';
+    if (this.wet > 40) return '😒';
     const m = { hurt: '😣', happy: '😄', curious: '🤔', meh: '😕' }[this.mood];
     if (m) return m;
     const low = Math.min(...NEEDS.map(k => this.needs[k]));
