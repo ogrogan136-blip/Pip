@@ -183,6 +183,23 @@ function buildModel(type) {
       g.userData.winMat = winMat;
       break;
     }
+    case 'salad': {
+      add(mesh(new THREE.SphereGeometry(13, 18, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), mat('#e9e2d0', { side: THREE.DoubleSide }), 0, 12, 0));
+      for (let i = 0; i < 7; i++) { const l = add(mesh(jitterGeo(sphere(5, 8), 1.5, i + 1), mat(i % 3 ? '#6fb53d' : '#a5d65a'), Math.cos(i) * 5, 12 + (i % 2) * 2, Math.sin(i) * 5)); l.scale.y = 0.5; }
+      for (let i = 0; i < 3; i++) add(mesh(sphere(2.6, 8), mat('#d8323c'), Math.cos(i * 2) * 4, 15, Math.sin(i * 2) * 4));
+      break;
+    }
+    case 'wrap': {
+      const w = add(mesh(cyl(6, 6, 22, 14), mat('#7fbf45', { roughness: 0.6 }), 0, 6, 0));
+      w.rotation.z = Math.PI / 2;
+      for (const s of [-1, 1]) { const e = add(mesh(cyl(5, 5, 1, 12), mat('#6b4a24'), s * 11.2, 6, 0)); e.rotation.z = Math.PI / 2; }
+      break;
+    }
+    case 'skewer': {
+      const st = add(mesh(cyl(0.9, 0.9, 30, 6), mat('#8a5a2b'), 0, 4, 0)); st.rotation.z = Math.PI / 2;
+      for (let i = 0; i < 3; i++) { const b = add(mesh(new THREE.CapsuleGeometry(2.6, 5, 4, 8), mat(i === 1 ? '#6b4a24' : '#8c6a3a'), -7 + i * 7, 4, 0)); b.rotation.z = Math.PI / 2; }
+      break;
+    }
     case 'stick': {
       const st = add(mesh(cyl(1.6, 1.3, 26, 7), mat('#8a5a2b', { roughness: 0.9 }), 0, 1.8, 0));
       st.rotation.z = Math.PI / 2; st.rotation.y = 0.2;

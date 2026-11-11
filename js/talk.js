@@ -113,7 +113,7 @@ const Talk = {
       return this.ask({ kind: 'word', text: `What does "${task.text}" mean? Can you say it another way?` });
     }
     // 2. a need it has no answer for
-    const weights = b.needWeights(L.needs);
+    const weights = b.needWeights(L.needs, L.refill);
     const desp = b.desperation(L, weights);
     if (L.needs.fun < 30) {
       const knowsToy = Object.entries(b.effects).some(([k, e]) => k.endsWith(':play') && (e.d.fun || 0) >= 8 && [...L.memory.values()].some(m => k.startsWith(m.type + ':')));

@@ -135,9 +135,10 @@ class World {
 
   // Keep the tank from overflowing: clear away the oldest bits of clutter.
   makeRoom(max = 60) {
-    const clutter = ['stick', 'shell', 'bone', 'flower', 'ladybug', 'mushroom'];
+    // only small loose things get tidied away, never furniture like the water dish or lamp
+    const clutter = ['stick', 'shell', 'bone', 'flower', 'ladybug', 'mushroom', 'crab', 'mealworm', 'cricket', 'berry', 'lettuce'];
     while (this.objects.length >= max) {
-      const old = this.objects.find(o => clutter.includes(o.type)) || this.objects.find(o => !TYPES[o.type].building && !TYPES[o.type].custom) || this.objects.find(o => !TYPES[o.type].building);
+      const old = this.objects.find(o => clutter.includes(o.type)) || this.objects.find(o => TYPES[o.type].custom && TYPES[o.type].byPip && !o.carried);
       if (!old) break;
       this.remove(old.id);
     }
@@ -210,6 +211,8 @@ class World {
       if (this.feederTimer > 25) {
         this.feederTimer = 0;
     this.fx = [];            // visual events for the renderer (splashes etc.), not saved
+        // the keeper always makes sure there's a water dish
+        if (!this.objects.some(o => o.type === 'water')) this.add('water', 780, 480);
         const foods = this.objects.filter(o => ['cricket', 'mealworm', 'lettuce', 'berry'].includes(o.type)).length;
         if (foods < 3) {
           const pick = ['cricket', 'cricket', 'mealworm', 'lettuce', 'berry'][Math.floor(Math.random() * 5)];

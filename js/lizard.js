@@ -39,6 +39,7 @@ class Lizard {
     this.tongue = 0;
     this.anim = 0;
     this.carrying = null;  // id of the object in Pip's mouth
+    this.refill = {};      // needs Pip is busy topping back up
     this.onThought = null; // callback(text, kind)
     this.onAction = null;  // callback(type, verb, delta)
   }
@@ -431,6 +432,10 @@ class Lizard {
     if (n.fullness <= 1 || n.hydration <= 1) n.health -= 0.6 * dt;
     if (n.warmth > 97) n.health -= 0.3 * dt;
     for (const k of NEEDS) n[k] = clamp(n[k], 0, 100);
+    for (const k of ['fullness', 'hydration', 'fun']) {
+      if (n[k] < 45 && !this.refill[k]) { this.refill[k] = true; if (this.onLow) this.onLow(k); }
+      else if (n[k] >= 80) delete this.refill[k];
+    }
   }
 
   // How Pip feels overall (for the face in the header)

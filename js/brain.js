@@ -218,11 +218,13 @@ class Brain {
   }
 
   // How much Pip cares about +1 of each need right now.
-  needWeights(needs) {
+  needWeights(needs, refill) {
     const w = {};
     for (const n of ['fullness', 'hydration', 'energy', 'fun']) {
       const lack = (100 - needs[n]) / 100;
       w[n] = 0.15 + 2.6 * lack * lack;
+      // once a bar has got low, Pip keeps at it until it's back up to 80
+      if (refill && refill[n]) w[n] += 0.9;
     }
     // warmth: lizards are cold-blooded. Comfortable around 60-85.
     if (needs.warmth < 70) { const c = (70 - needs.warmth) / 70; w.warmth = 0.1 + 2.6 * c * c; }
@@ -280,14 +282,16 @@ class Brain {
   // Instinct: Pip knows which *action* helps each need (thirsty → drink),
   // but has to learn which *things* to do it with.
   desperation(lizard, weights) {
-    const types = new Set([...lizard.memory.values()].map(m => m.type));
+    // only things that are really still around count (not a cricket that got eaten ages ago)
+    const w = lizard.worldRef;
+    const types = new Set([...lizard.memory.values()].filter(m => !w || w.get(m.id)).map(m => m.type));
     const d = {};
     for (const need of ['fullness', 'hydration', 'warmth', 'energy']) {
       if (weights[need] < 0.7) continue;
       let solved = false;
       for (const [k, e] of Object.entries(this.effects)) {
         const t = k.split(':')[0];
-        if ((e.d[need] || 0) >= 8 && (types.has(t) || t === 'ground')) { solved = true; break; }
+        if (e.n > 0 && (e.d[need] || 0) >= 8 && (types.has(t) || t === 'ground')) { solved = true; break; }
       }
       if (!solved) d[INSTINCT[need]] = Math.min(1.1, 0.5 * (weights[need] - 0.5));
     }
@@ -346,7 +350,7 @@ class Brain {
   // Returns a plan: { kind:'act'|'wander', objId, type, verb, x, y, reason, thought, score }
   decide(lizard, world, task, now) {
     const needs = lizard.needs;
-    const weights = this.needWeights(needs);
+    const weights = this.needWeights(needs, lizard.refill);
     const candidates = [];
     const taskWords = task ? task.words : null;
     const desperateFor = this.desperation(lizard, weights);
@@ -366,6 +370,11 @@ class Brain {
         task: 0,
         travel: -(d / 700) * (0.4 + (100 - needs.energy) / 120),
       };
+      // instinct: when Pip badly needs something, things that *look* right are tried first
+      if (desperateFor[v] && LOOKS_LIKE[v] && LOOKS_LIKE[v].includes(t) && !this.known(t, v)) parts.curious += 0.6 * desperateFor[v] + 0.2;
+      // tried it a couple of times and nothing happened? Clearly that doesn't work.
+      const e = this.known(t, v);
+      if (e && e.n >= 2 && NEEDS.every(n => n === 'energy' || Math.abs(e.d[n] || 0) < 3)) { parts.curious = 0; parts.need -= 0.4; }
       if (taskWords) {
         const belief = this.taskBelief(taskWords, t, v);
         const failedHere = task.tried[this.key(t, v)] || 0;
@@ -413,7 +422,8 @@ class Brain {
     // ...and go searching when it needs something it doesn't know where to find
     candidates.push({ kind: 'wander', search: desperate > 0, score: ready * (0.06 + unseenBias + 0.15 * this.curiosity * (100 - needs.fun) / 100) + desperate * 1.2, parts: { curious: 0.2 } });
     // Sitting still: lizards spend a lot of time just watching the world.
-    candidates.push({ kind: 'idle', score: task || desperate > 0 ? 0.05 : 0.5, parts: {} });
+    const topping = lizard.refill && Object.keys(lizard.refill).length > 0;
+    candidates.push({ kind: 'idle', score: task || desperate > 0 ? 0.05 : topping ? 0.15 : 0.5, parts: {} });
 
     // Softmax choice among the good options (a bit of randomness = personality)
     candidates.sort((a, b) => b.score - a.score);
@@ -570,6 +580,8 @@ class Brain {
 }
 
 const INSTINCT = { fullness: 'eat', hydration: 'drink', warmth: 'bask', energy: 'rest' };
+// what looks drinkable / edible / warm / comfy to a lizard, before it knows for sure
+const LOOKS_LIKE = { drink: ['water'], eat: ['cricket', 'mealworm', 'lettuce', 'berry', 'crab', 'salad', 'wrap', 'skewer'], bask: ['lamp', 'rock'], rest: ['log', 'nest', 'den'] };
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 

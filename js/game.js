@@ -34,6 +34,18 @@ class Game {
     this.celebrate = 0;
     this.lizard.onThought = (text, kind) => this.addLog(text, kind);
     this.lizard.onAction = (t, v, d) => this.handleAction(t, v, d);
+    // older saves could have had the water dish, lamp or log tidied away by mistake
+    if (save && (save.v || 1) < 4) {
+      const has = t => this.world.objects.some(o => o.type === t);
+      if (!has('water')) this.world.add('water', 780, 480);
+      if (!has('lamp')) this.world.add('lamp', 160, 140);
+      if (!has('log')) this.world.add('log', 820, 140);
+      if (!has('rock')) this.world.add('rock', 185, 170);
+    }
+    this.lizard.onLow = need => {
+      const say = { fullness: 'My tummy is getting low. Time to fill it up properly. 🍖', hydration: 'I\'m getting thirsty. I need a good long drink. 💧', fun: 'I\'m getting bored. I need some proper fun. 🎾' }[need];
+      if (this.lizard.state !== 'acting') this.lizard.think(say, 'need');
+    };
     // Pip sometimes tells you about what it just read
     this.lizard.onRead = text => { if (Math.random() < 0.35) { this.chat.push({ from: 'pip', text: 'Guess what I read! ' + text.replace(/^.*?: /, '') }); if (this.chat.length > 40) this.chat.shift(); this.emit('chat'); } };
   }
@@ -157,7 +169,7 @@ class Game {
 
   // ---- save / load ----
   toJSON() {
-    return { v: 3, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question, daydreams: this.daydreams, freeImagination: this.freeImagination };
+    return { v: 4, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question, daydreams: this.daydreams, freeImagination: this.freeImagination };
   }
 }
 

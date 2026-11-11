@@ -22,7 +22,8 @@ const BOOKS = {
     ['Cooking means putting foods together to make something better.', { idea: 'craft' }],
     ['Lettuce is crunchy and full of water.', { learn: ['lettuce', 'eat'] }],
     ['Berries are sweet. Too many make your tummy gurgle.', { learn: ['berry', 'eat'] }],
-    ['Recipe: Desert Salad. Toss one lettuce with one berry.', { idea: 'recipe:salad' }],
+    ['Recipe: Desert Salad. Toss one lettuce with one berry. Much more filling than plain lettuce!', { idea: 'recipe:salad' }],
+    ['Recipe: Lettuce Wrap. Roll a cricket up in a lettuce leaf. A proper meal.', { idea: 'recipe:wrap' }],
     ['Never, ever eat red mushrooms with white spots.', { learn: ['mushroom', 'eat'] }],
     ['Recipe: Bug on a Stick. Push a cricket onto a stick. Crunchy!', { idea: 'recipe:skewer' }],
     ['Eating somewhere warm helps you digest.'],
@@ -202,10 +203,13 @@ const Reading = {
 
 // Things you can cook once you've read about them
 RECIPES.salad = { needs: { lettuce: 1, berry: 1 }, makes: 'salad', label: 'a desert salad', food: true };
+RECIPES.wrap = { needs: { lettuce: 1, cricket: 1 }, makes: 'wrap', label: 'a lettuce wrap', food: true };
+TYPES.wrap = { emoji: '🌯', name: 'lettuce wrap', size: 14, food: true, hidden: true };
+EFFECTS.wrap = { eat: { fullness: 60, hydration: 10, fun: 6 } };
 RECIPES.skewer = { needs: { cricket: 1, stick: 1 }, makes: 'skewer', label: 'a bug on a stick', food: true };
 TYPES.salad = { emoji: '🥗', name: 'desert salad', size: 15, food: true, hidden: true };
 TYPES.skewer = { emoji: '🍢', name: 'bug on a stick', size: 14, food: true, hidden: true };
-EFFECTS.salad = { eat: { fullness: 35, hydration: 12, fun: 8 } };
+EFFECTS.salad = { eat: { fullness: 45, hydration: 18, fun: 8 } };
 EFFECTS.skewer = { eat: { fullness: 48, fun: 6 } };
 
 Object.assign(Brain.prototype, Reading);
