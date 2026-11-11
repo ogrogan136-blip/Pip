@@ -86,6 +86,7 @@ class Lizard {
 
     this.updateNeeds(dt, world);
     this.updateCarry(dt, world);
+    if (this.inside && this.state !== 'acting') this.inside = false;
 
     this.senseTimer -= dt;
     if (this.senseTimer <= 0) {
@@ -247,7 +248,9 @@ class Lizard {
       delta = { fullness: 0, hydration: 0, energy: -1, warmth: 0, fun: 6, health: 0 };
       this.needs.fun = clamp(this.needs.fun + 6, 0, 100);
       const firstVisit = brain.learnEffect(p.type, 'read', delta);
-      const text = brain.readBook(this, world, task, p.desperateFor || {});
+      let text;
+      try { text = brain.readBook(this, world, task, p.desperateFor || {}); }
+      catch (e) { console.error(e); text = 'I flipped through a book but got a bit muddled. 😵‍💫'; }
       r = { mood: 'happy', text: firstVisit ? 'It\'s full of books! ' + text : text };
       if (this.onRead && !firstVisit) this.onRead(text);
       brain.satisfyCuriosity(world.time);

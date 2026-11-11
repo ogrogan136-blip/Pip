@@ -399,17 +399,32 @@
     save();
   }
 
+  // ---------- if anything goes wrong, keep going instead of freezing ----------
+  let lastErr = '';
+  function recover(err) {
+    const msg = (err && err.message) || String(err);
+    console.error('Pip hit a problem:', err);
+    if (msg !== lastErr) { lastErr = msg; game.addLog(`⚠️ Something went wrong (${msg}). Pip shook it off.`, 'bad'); }
+    const L = game.lizard;
+    try { L.drop(game.world); } catch (e) { L.carrying = null; }
+    L.inside = false; L.state = 'pausing'; L.timer = 1; L.plan = null;
+    game.world.objects.forEach(o => { o.held = false; o.carried = false; o.lift = 0; });
+  }
+
   // ---------- main loop ----------
   const STEP = 1 / 60;
   let acc = 0, last = performance.now(), slowTimer = 0, saveTimer = 0;
   function frame(now) {
+    requestAnimationFrame(frame); // schedule the next frame first, so nothing can freeze the game
+    try {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     acc += dt * speed;
     let steps = 0;
-    while (acc >= STEP && steps < 800) { game.step(STEP); acc -= STEP; steps++; }
+    try { while (acc >= STEP && steps < 800) { game.step(STEP); acc -= STEP; steps++; } }
+    catch (err) { acc = 0; recover(err); }
     if (acc > STEP) acc = 0;
-    renderer.draw(game, ui, dt);
+    try { renderer.draw(game, ui, dt); } catch (err) { recover(err); }
     renderNeeds();
     renderLog();
     renderChat();
@@ -426,7 +441,7 @@
       $('clock').textContent = `${game.world.isNight ? '🌙 Night' : '☀️ Day'} ${day}`;
     }
     if (saveTimer > 5) { saveTimer = 0; save(); }
-    requestAnimationFrame(frame);
+    } catch (err) { recover(err); }
   }
   window.addEventListener('beforeunload', save);
   document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
