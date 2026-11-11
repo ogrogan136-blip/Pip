@@ -46,7 +46,7 @@ const VERB_WORDS = {
   bask: ['bask', 'warm', 'sun', 'sunbathe', 'hot', 'cosy', 'cozy'],
   rest: ['rest', 'sleep', 'nap', 'bed', 'lie', 'snooze', 'relax', 'sit'],
   play: ['play', 'toy', 'fun', 'game', 'kick', 'push', 'climb', 'splash', 'chase'],
-  read: ['read'],
+  read: ['read', 'study', 'learn', 'reading', 'research', 'browse'],
 };
 const BAD_WORDS = ['don', 'dont', 'not', 'never', 'bad', 'danger', 'dangerou', 'poison', 'poisonou', 'hurt', 'ouch', 'careful', 'avoid', 'sharp', 'yuck', 'cant', 'cannot'];
 const GIVE_WORDS = ['give', 'here', 'have', 'take', 'present', 'gift', 'brought', 'got'];
@@ -270,7 +270,15 @@ const Talk = {
       if (q && q.kind === 'want') this.question = null;
       return done(this.give(u.types[0], verb));
     }
-    const verb = u.verb === 'read' ? null : u.verb;
+    // "go read", "study", "look at the books": that's reading at the book shop
+    const lookAtBooks = u.words.some(w => ['look', 'see', 'flip'].includes(w)) && u.words.some(w => ['book', 'bookshop', 'library'].includes(w));
+    if (u.verb === 'read' || lookAtBooks) {
+      const shop = this.world.objects.find(o => o.type === 'bookstore');
+      if (!shop) return done('There\'s no book shop here to read in. 📚');
+      this.giveTask({ text: taskTextFor('read', 'bookstore'), verb: 'read', type: 'bookstore', count: 1, auto: true });
+      return done(this.brain.known('bookstore', 'read') ? 'Off to the book shop to read! 📚' : 'Read? At the book shop? I\'ll go and look at the books! 📚');
+    }
+    const verb = u.verb;
     if (T0 && (verb || u.bad)) {
       if (q && q.kind === 'whatis' && q.type === u.types[0]) this.question = null;
       return done(this.believe(u.types[0], verb, u.bad));
@@ -280,7 +288,7 @@ const Talk = {
       return done(this.believe(q.type, verb, u.bad));
     }
     // "show me what you made" → fetch it and hold it up
-    if (u.words.some(w => ['show', 'see', 'look', 'hold', 'bring', 'fetch'].includes(w))) {
+    if (u.words.some(w => ['show', 'see', 'look', 'hold', 'bring', 'fetch'].includes(w)) && !u.words.some(w => ['book', 'bookshop', 'library'].includes(w))) {
       const key = u.types.find(t => !TYPES[t].building) || this.lastInvented;
       const obj = key && this.world.objects.filter(o => o.type === key).sort((a, b) => dist(a.x, a.y, this.lizard.x, this.lizard.y) - dist(b.x, b.y, this.lizard.x, this.lizard.y))[0];
       if (obj) { this.lizard.fetch(obj); this.chat.push({ from: 'pip', text: this.lizard.thought }); return this.emit('chat'); }

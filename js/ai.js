@@ -72,7 +72,7 @@ Work out what the human means and how Pip answers. Reply with only a JSON object
    {"do": "learn", "thing": "<type key>", "verb": "eat|drink|bask|rest|play", "effect": "good|bad|nothing"}   // the human told Pip what something does
    {"do": "give", "thing": "<type key>"}        // the human is giving Pip a thing (it appears next to Pip)
    {"do": "idea", "idea": "dig|break|craft|recipe:nest|recipe:digger|recipe:den"}   // the human suggested a new skill
-   {"do": "task", "verb": "eat|drink|bask|rest|play|any", "thing": "<type key>", "count": 1}  // the human asked Pip to do something
+   {"do": "task", "verb": "eat|drink|bask|rest|play|read|any", "thing": "<type key>", "count": 1}  // the human asked Pip to do something ("read" only with the bookstore: looking at the books, even just the pictures, counts as reading)
  If the human asks Pip to invent, imagine, make or create something, suggests something for Pip to make, or Pip says it made something, you MUST include a create action for it.
    {"do": "show", "thing": "<type key>"}       // the human wants to see something: Pip fetches it and holds it up
    {"do": "create", "thing": {"name": "1-3 words", "emoji": "one emoji", "shape": "ball|box|cone|cylinder|blob|star", "color": "#rrggbb", "size": "small|medium|big", "where": "dig|here", "moves": true/false, "goneWhenEaten": true/false,
@@ -131,13 +131,14 @@ Reply with only a JSON object:
 function applyAiReply(game, r) {
   const valid = t => typeof t === 'string' && TYPES[t] && (!TYPES[t].hidden || game.brain.seen[t] || TYPES[t].custom);
   const verbs = ['eat', 'drink', 'bask', 'rest', 'play'];
+  const taskVerbs = verbs.concat(['read']);
   let created = false, showing = false;
   for (const a of Array.isArray(r.actions) ? r.actions.slice(0, 4) : []) {
     if (!a || typeof a !== 'object') continue;
     if (a.do === 'learn' && valid(a.thing) && verbs.includes(a.verb) && a.effect !== 'nothing') game.believe(a.thing, a.verb, a.effect === 'bad');
     else if (a.do === 'give' && valid(a.thing) && !TYPES[a.thing].building) { game.world.makeRoom(); const p = game.lizard, ang = Math.random() * 6.28; game.world.add(a.thing, p.x + Math.cos(ang) * 70, p.y + Math.sin(ang) * 70); }
     else if (a.do === 'idea' && typeof a.idea === 'string' && (['dig', 'break', 'craft'].includes(a.idea) || (a.idea.startsWith('recipe:') && RECIPES[a.idea.slice(7)]))) game.brain.addIdea(a.idea, 'you');
-    else if (a.do === 'task' && valid(a.thing) && (verbs.includes(a.verb) || a.verb === 'any')) game.giveTask({ text: taskTextFor(a.verb, a.thing), verb: a.verb, type: a.thing, count: clamp(Math.round(+a.count || 1), 1, 5), auto: true });
+    else if (a.do === 'task' && valid(a.thing) && (taskVerbs.includes(a.verb) || a.verb === 'any')) game.giveTask({ text: taskTextFor(a.verb, a.thing), verb: a.verb, type: a.thing, count: clamp(Math.round(+a.count || 1), 1, 5), auto: true });
     else if (a.do === 'create') {
       const def = a.thing && typeof a.thing === 'object' ? a.thing : a;
       const key = createInvented(game, def, true);

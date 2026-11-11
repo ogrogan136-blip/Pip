@@ -242,7 +242,7 @@ const Reading = {
     this.spark(pickK, 0.04);
     this.nextReadAt = (world.time || 0) + 480 + Math.random() * 360; // had enough reading for a while
     const page = at + 1, done = (r.read[pickK] || []).length >= book.pages.length;
-    const lead = r.literacy < 3 ? `I can't read the words yet, but the pictures in "${book.title}" ${book.emoji} show… ` : `Reading "${book.title}" ${book.emoji}, page ${page}: `;
+    const lead = r.literacy < 3 ? `Reading "${book.title}" ${book.emoji} — well, looking at the pictures! They show… ` : `Reading "${book.title}" ${book.emoji}, page ${page}: `;
     return lead + learnt.join(' ') + (done ? ' …The end! I finished the whole book! 🎉' : ' 📖');
   },
 };
