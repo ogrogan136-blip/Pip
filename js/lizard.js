@@ -450,7 +450,7 @@ class Lizard {
     else brain.spark(p.verb === 'dig' ? 'digging' : ['plant', 'tend'].includes(p.verb) || (RECIPES[p.recipe] && RECIPES[p.recipe].farm) ? 'garden' : RECIPES[p.recipe] && RECIPES[p.recipe].food ? 'cooking' : 'building', 0.03);
     this.think(text, mood === 'happy' ? 'discover' : 'meh');
     this.setMood(mood === 'happy' ? 'happy' : 'meh');
-    brain.satisfyCuriosity(world.time);
+    if (['dig', 'tinker'].includes(p.verb) || (p.verb === 'craft' && brain.skills['recipe:' + p.recipe] && brain.skills['recipe:' + p.recipe].hits === 1)) brain.satisfyCuriosity(world.time);
     this.state = 'pausing';
     this.timer = 6 + Math.random() * 5;
   }

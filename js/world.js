@@ -184,7 +184,7 @@ class World {
   // Keep the tank from overflowing: clear away the oldest bits of clutter.
   makeRoom(max = 60) {
     // only small loose things get tidied away, never furniture like the water dish or lamp
-    const clutter = ['stick', 'shell', 'bone', 'flower', 'ladybug', 'mushroom', 'crab', 'mealworm', 'cricket', 'berry', 'lettuce'];
+    const clutter = ['shell', 'bone', 'flower', 'ladybug', 'mushroom', 'crab', 'mealworm', 'cricket', 'berry', 'lettuce', 'stick'];
     while (this.objects.length >= max) {
       const old = this.objects.find(o => clutter.includes(o.type)) || this.objects.find(o => TYPES[o.type].custom && TYPES[o.type].byPip && !o.carried);
       if (!old) break;

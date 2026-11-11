@@ -78,6 +78,25 @@ class Brain {
     return true;
   }
   skill(name) { return this.skills[name] || (this.skills[name] = { n: 0, hits: 0 }); }
+  // How many sticks would Pip need for the things it still wants to build (and has everything else for)?
+  sticksWanted(lizard) {
+    const w = lizard.worldRef;
+    if (!w) return 0;
+    const has = t => w.objects.some(o => o.type === t);
+    let need = 0;
+    for (const [r, R] of Object.entries(RECIPES)) {
+      if (!R.needs.stick || !this.hasIdea('recipe:' + r) || R.food || R.custom) continue;
+      if (R.makes && has(R.makes)) continue;                                  // already built one
+      if (r === 'bed' && has('bed')) continue;
+      if (r === 'digger' && this.tools.digger) continue;
+      if (r === 'sweater' || r === 'wool') continue;
+      const others = Object.entries(R.needs).filter(([t]) => t !== 'stick');
+      if (others.some(([t, n]) => w.objects.filter(o => o.type === t).length < n)) continue; // missing something else anyway
+      need = Math.max(need, R.needs.stick);
+    }
+    return need;
+  }
+
   // Where the next plant goes: a tidy patch near the water dish.
   farmSpot(lizard, n) {
     const w = lizard.worldRef;
@@ -282,7 +301,7 @@ class Brain {
     if (this.hasIdea('break')) {
       const s = this.skills.break || { n: 0, hits: 0 };
       const log = mem.find(m => m.type === 'log' && lizard.worldRef && lizard.worldRef.get(m.id) && (lizard.worldRef.get(m.id).breaks || 0) < 3);
-      const wantSticks = (this.hasIdea('craft') || ['bucket', 'hut', 'bed'].some(r => this.hasIdea('recipe:' + r))) && count('stick') < 3;
+      const wantSticks = this.sticksWanted(lizard) > (lizard.worldRef ? lizard.worldRef.objects.filter(o => o.type === 'stick').length : count('stick'));
       if (log) push({ verb: 'break', type: 'log', objId: log.id, x: log.x, y: log.y }, (s.hits < 1 ? 0.75 * ready : 0.04) + (wantSticks ? 0.6 : 0));
     }
     {
@@ -326,7 +345,7 @@ class Brain {
       if (VERBS.some(v => !this.known(t, v))) return { kind: 'wonder', val: 0.35 + 0.7 * (100 - lizard.needs.fun) / 100 };
     }
     if (this.nextIdea()) return { kind: 'wonder', val: 0.3 + 0.5 * (100 - lizard.needs.fun) / 100 };
-    if (this.unreadBooks().length) { const top = this.topInterest(); return { kind: 'interest', val: 0.1 + 0.3 * (100 - lizard.needs.fun) / 100 + 0.2 * (top ? top[1] : 0) }; }
+    if (this.unreadBooks().length) { const top = this.topInterest(); return { kind: 'interest', val: 0.3 + 0.35 * (100 - lizard.needs.fun) / 100 + 0.3 * (top ? top[1] : 0) }; }
     return null;
   }
 
@@ -469,7 +488,12 @@ class Brain {
       const W = this.wordRec(w);
       const rt = W.types[t] || (W.types[t] = { s: 0, f: 0 });
       const rv = W.verbs[v] || (W.verbs[v] = { s: 0, f: 0 });
-      if (success) { rt.s++; rv.s++; } else { rt.f += 0.5; rv.f += 0.5; }
+      if (success) { rt.s++; rv.s++; continue; }
+      // a failure: blame only the part that wasn't plainly named by this word
+      const T = TYPES[t], names = T ? [T.name, ...(T.words || [])].flatMap(n => tokenize(n)) : [];
+      const namesThing = names.includes(w), namesAction = w === v || (VERB_WORDS[v] || []).includes(w);
+      if (!namesThing) rt.f += 0.5;
+      if (!namesAction) rv.f += 0.5;
     }
   }
 
@@ -483,9 +507,11 @@ class Brain {
       if (rt) { const r = (rt.s + 0.15) / (rt.s + rt.f + 1); pt = pt === null ? r : Math.max(pt, r); }
       if (rv) { const r = (rv.s + 0.15) / (rv.s + rv.f + 1); pv = pv === null ? r : Math.max(pv, r); }
     }
-    // Unheard-of combos get a hopeful prior so Pip will try them.
-    if (pt === null) pt = 0.3;
-    if (pv === null) pv = 0.3;
+    // Unheard-of combos get a hopeful prior so Pip will try them,
+    // and a better one when a word is plainly the name of the thing or the action.
+    const T = TYPES[t], names = T ? [T.name, ...(T.words || [])].flatMap(n => tokenize(n)) : [];
+    if (pt === null) pt = words.some(w => names.includes(w)) && this.seen[t] ? 0.65 : 0.3;
+    if (pv === null) pv = words.includes(v) || words.some(w => (VERB_WORDS[v] || []).includes(w)) ? 0.65 : 0.3;
     return pt * pv;
   }
 
@@ -547,7 +573,7 @@ class Brain {
         const belief = this.taskBelief(taskWords, t, v);
         const failedHere = task.tried[this.key(t, v)] || 0;
         // "Is this what my human means?" — an urge to try things for the task
-        parts.task = 2.4 * belief / (1 + failedHere * 1.5) + (this.danger(t) < -3 ? 0 : 0.45 / (1 + failedHere * 3));
+        parts.task = 2.4 * belief / (1 + failedHere * 1.5) + (this.danger(t) < -3 ? 0 : 0.7 / (1 + failedHere * 3));
         // a task makes Pip a little more willing to experiment
         parts.curious *= 0.6;
       }
@@ -565,13 +591,13 @@ class Brain {
         c.q = q;
         const eRead = this.known(mem.type, 'read');
         if (!eRead && !(task && task.verb === 'read' && task.type === mem.type)) candidates.pop(); // Pip doesn't know reading is a thing yet
-        else {
+        else if (eRead) {
           // the more often books have helped, the more Pip trusts them
           const trust = Math.min(1, 0.5 + 0.2 * eRead.n);
           if (q) q.val *= trust;
           // after a reading session Pip wants a break, unless it urgently needs to look something up
           const rested = !this.nextReadAt || now >= this.nextReadAt;
-          const ready = q && (q.kind === 'wonder' || q.kind === 'interest') ? (rested ? this.curiosityReadiness(now) * this.curiosity : 0) : 1;
+          const ready = q && (q.kind === 'wonder' || q.kind === 'interest') ? (rested ? Math.max(0.7, this.curiosityReadiness(now)) * this.curiosity : 0) : 1;
           c.score += -c.parts.curious + (q ? q.val * ready : 0.02);
           c.parts.curious = q ? q.val * ready : 0.02;
         }
@@ -601,6 +627,8 @@ class Brain {
     let r = Math.random() * ws.reduce((a, b) => a + b, 0), pick = top[0];
     for (let i = 0; i < top.length; i++) { r -= ws[i]; if (r <= 0) { pick = top[i]; break; } }
 
+    // while doing a task for its human, Pip's own projects can wait (unless they're urgent)
+    if (task) for (const c of candidates) if (c.kind === 'skill' && !['shelter', 'unwear', 'grab'].includes(c.verb)) c.score *= 0.45;
     // thunder is scary: a house sounds good
     if (world && world.weather === 'thunder') for (const c of candidates) if (c.verb === 'rest' && TYPES[c.type] && TYPES[c.type].building) c.score += 0.7;
     pick.desperateFor = desperateFor;
