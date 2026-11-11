@@ -80,8 +80,8 @@ const BOOKS = {
   ] },
   garden: { title: 'Grow Your Own Food', emoji: '🌱', pages: [
     ['Fruit has seeds inside. Keep them after you eat!', { idea: 'plant' }],
-    ['Push a seed into the sand and it grows into a seedling.'],
-    ['Seedlings grow much faster if you water them.', { idea: 'tend' }],
+    ['Seeds can\'t grow in dry sand. Plant them in soft grass or soil.', { idea: 'grass' }],
+    ['Seedlings need watering every so often, or they dry up and die.', { idea: 'tend' }],
     ['Lettuce can grow back from its stump. Plant that too!'],
     ['A grown plant gives food again and again.'],
     ['Lots of plants in one place is called a farm. A farm means food every day!'],
@@ -172,6 +172,15 @@ const Reading = {
     const r = this.readState(), books = this.allBooks();
     const unread = this.unreadBooks();
     if (!unread.length) return 'I\'ve read every single book in here! I could read my favourites again. 📚';
+    // Seeds keep dying? Look up how gardening works.
+    if (q && q.kind === 'garden') {
+      const bk = books.garden, i = bk.pages.findIndex((pg, idx) => pg[1] && pg[1].idea === q.idea && !(r.read.garden || []).includes(idx));
+      if (i >= 0) {
+        const text = this.readPage('garden', i);
+        r.literacy = Math.min(30, r.literacy + 0.5);
+        return `I looked up why my seeds keep dying, in "${bk.title}" ${bk.emoji}: ${text} So THAT's what I was doing wrong! 📖`;
+      }
+    }
     // Something urgent? Look it up in the index and go straight to that page.
     if (q && q.kind === 'need') {
       const need = q.verb === 'play' ? 'fun' : Object.keys(INSTINCT).find(n => INSTINCT[n] === q.verb);
@@ -216,12 +225,15 @@ const Reading = {
 RECIPES.salad = { needs: { lettuce: 1, berry: 1 }, makes: 'salad', label: 'a desert salad', food: true };
 RECIPES.wrap = { needs: { lettuce: 1, cricket: 1 }, makes: 'wrap', label: 'a lettuce wrap', food: true };
 TYPES.wrap = { emoji: '🌯', name: 'lettuce wrap', size: 14, food: true, hidden: true };
-EFFECTS.wrap = { eat: { fullness: 60, hydration: 10, fun: 6 } };
+EFFECTS.wrap = { eat: { fullness: 60, hydration: 10, fun: 15 } };
+TYPES.wrap.cooked = true;
 RECIPES.cricketbox = { needs: { stick: 2, lettuce: 1 }, makes: 'cricketbox', label: 'a cricket box', farm: true };
 RECIPES.skewer = { needs: { cricket: 1, stick: 1 }, makes: 'skewer', label: 'a bug on a stick', food: true };
 TYPES.salad = { emoji: '🥗', name: 'desert salad', size: 15, food: true, hidden: true };
 TYPES.skewer = { emoji: '🍢', name: 'bug on a stick', size: 14, food: true, hidden: true };
-EFFECTS.salad = { eat: { fullness: 45, hydration: 18, fun: 8 } };
-EFFECTS.skewer = { eat: { fullness: 48, fun: 6 } };
+EFFECTS.salad = { eat: { fullness: 45, hydration: 18, fun: 12 } };
+TYPES.salad.cooked = true;
+EFFECTS.skewer = { eat: { fullness: 48, fun: 10 } };
+TYPES.skewer.cooked = true;
 
 Object.assign(Brain.prototype, Reading);

@@ -200,6 +200,20 @@ function buildModel(type, o) {
       for (let i = 0; i < 3; i++) { const b = add(mesh(new THREE.CapsuleGeometry(2.6, 5, 4, 8), mat(i === 1 ? '#6b4a24' : '#8c6a3a'), -7 + i * 7, 4, 0)); b.rotation.z = Math.PI / 2; }
       break;
     }
+    case 'grass': {
+      const patch = add(mesh(cyl(70, 72, 1.6, 40), mat('#4f8a2c', { roughness: 1 }), 0, 0.8, 0));
+      patch.castShadow = false;
+      const inner = add(mesh(cyl(64, 64, 0.4, 40), mat('#5e9a33', { roughness: 1 }), 0, 1.7, 0));
+      inner.castShadow = false;
+      let sd = 3; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < 46; i++) {
+        const a = rr() * Math.PI * 2, d = 6 + rr() * 60;
+        const blade = mesh(new THREE.ConeGeometry(1.1, 5 + rr() * 6, 4), mat(i % 3 ? '#5f9433' : '#8cc152'), Math.cos(a) * d, 4, Math.sin(a) * d);
+        blade.castShadow = false; blade.rotation.set((rr() - 0.5) * 0.5, 0, (rr() - 0.5) * 0.5);
+        g.add(blade);
+      }
+      break;
+    }
     case 'seedling': {
       add(mesh(cyl(9, 10, 2, 14), mat('#7a5a3a', { roughness: 1 }), 0, 1, 0));
       const sprout = new THREE.Group();
@@ -548,7 +562,11 @@ class Renderer3D {
           m.userData.ball.rotateOnWorldAxis(axis, -sp / 60 / 13 * 2);
         }
       }
-      if (m.userData.sprout) { const g2 = 0.5 + Math.min(1, (o.age || 0) / 600) * 1.3; m.userData.sprout.scale.setScalar(g2); }
+      if (m.userData.sprout) {
+        const g2 = 0.5 + Math.min(1, (o.age || 0) / 600) * 1.3, droop = Math.min(1, (o.thirst || 0) / 300) + (o.onGrass === false ? Math.min(1, (o.sandTime || 0) / 150) : 0);
+        m.userData.sprout.scale.set(g2, g2 * (1 - 0.5 * Math.min(1, droop)), g2);
+        m.userData.sprout.rotation.z = Math.min(1, droop) * 0.7;
+      }
       if (m.userData.water) m.userData.water.position.y = 8.4 + Math.sin(o.t * 2) * 0.2;
       if (m.userData.winMat) m.userData.winMat.emissiveIntensity = 0.25 + (1 - world.daylight) * 1.6 + (this.reading === o.id ? 0.8 : 0);
       if (m.userData.light) m.userData.light.intensity = 1.2 + (1 - world.daylight) * 1.2 + Math.sin(o.t * 13) * 0.03;

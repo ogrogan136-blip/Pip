@@ -46,7 +46,7 @@ class Brain {
   }
 
   toJSON() {
-    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, skills: this.skills, tools: this.tools, spent: this.spent, seeds: this.seeds, farm: this.farm, asked: this.asked };
+    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, skills: this.skills, tools: this.tools, spent: this.spent, seeds: this.seeds, farm: this.farm, garden: this.garden, asked: this.asked };
   }
 
   key(t, v) { return t + ':' + v; }
@@ -80,12 +80,48 @@ class Brain {
   skill(name) { return this.skills[name] || (this.skills[name] = { n: 0, hits: 0 }); }
   // Where the next plant goes: a tidy patch near the water dish.
   farmSpot(lizard, n) {
+    const w = lizard.worldRef;
+    const grass = w && [...lizard.memory.values()].find(m => m.type === 'grass' && w.get(m.id));
+    // Knows seeds go in grass: plant in a neat grid on the patch
+    if (this.hasIdea('grass') && grass) {
+      const col = n % 3, row = Math.floor(n / 3) % 3;
+      return { x: grass.x + (col - 1) * 30, y: grass.y + (row - 1) * 30 };
+    }
+    // Doesn't know yet. After a failure or two, Pip experiments with other spots.
+    const g = this.garden || {};
+    if ((g.sandFails || 0) >= 1 && Math.random() < 0.35) {
+      const mem = [...lizard.memory.values()];
+      const m = mem[Math.floor(Math.random() * mem.length)];
+      if (m) return { x: clamp(m.x + (Math.random() - 0.5) * 50, 30, WORLD_W - 30), y: clamp(m.y + (Math.random() - 0.5) * 50, 30, WORLD_H - 30) };
+    }
     if (!this.farm) {
-      const w = lizard.worldRef, water = w && w.objects.find(o => o.type === 'water');
+      const water = w && w.objects.find(o => o.type === 'water');
       this.farm = water ? { x: clamp(water.x - 150, 80, WORLD_W - 80), y: clamp(water.y - 40, 80, WORLD_H - 80) } : { x: lizard.x, y: lizard.y };
     }
-    const col = n % 3, row = Math.floor(n / 3);
+    const col = n % 3, row = Math.floor(n / 3) % 3;
     return { x: clamp(this.farm.x + (col - 1) * 50, 30, WORLD_W - 30), y: clamp(this.farm.y + (row - 1) * 50, 30, WORLD_H - 30) };
+  }
+
+  // Something happened in the garden: learn from it.
+  gardenEvent(e) {
+    const g = this.garden || (this.garden = { sandFails: 0, dryFails: 0 });
+    const T = TYPES[e.grows] || { emoji: '🌱' };
+    if (e.kind === 'withered' && e.reason === 'sand') {
+      g.sandFails++;
+      if (this.hasIdea('grass')) return `One of my ${T.emoji} seedlings shrivelled up in the sand. I should only plant on the grass.`;
+      if (g.sandFails >= 2) { g.wonderSoil = true; this.spark('garden', 0.3); return `My ${T.emoji} seedling dried up in the sand again… Maybe seeds don't grow in sand? I should find out where they DO grow. 🤔`; }
+      return `Oh no, my ${T.emoji} seedling shrivelled up and died. 😢 Why?`;
+    }
+    if (e.kind === 'withered' && e.reason === 'dry') {
+      g.dryFails++;
+      if (this.addIdea('tend', 'experience')) return `My ${T.emoji} seedling dried out and died… It looked so thirsty. Maybe plants need water, like me? 💧`;
+      return `My ${T.emoji} seedling dried out. I forgot to water it! 😢`;
+    }
+    if (e.kind === 'grown') {
+      if (!this.hasIdea('grass')) { this.addIdea('grass', 'experience'); return `My ${T.emoji} plant grew big — on the GRASS! So that's where seeds go! 🌿🎉`; }
+      return `My ${T.emoji} plant is all grown up! Food for days! 🎉`;
+    }
+    return null;
   }
   // Eating something that grew from a seed: keep the seed, once Pip knows to.
   keepSeedOk(type) { const T = TYPES[type]; return !!T && !!T.food && !T.hops && !T.crawls && !T.wiggles && !['mushroom', 'salad', 'wrap', 'skewer'].includes(type); }
@@ -144,6 +180,8 @@ class Brain {
       push({ verb: 'dig', type: 'ground', objId: null, x: clamp(lizard.x + Math.cos(a) * r, 40, WORLD_W - 40), y: clamp(lizard.y + Math.sin(a) * r, 40, WORLD_H - 40) },
         (s.n < 3 ? 0.75 * ready : 0.08) + hungry * 1.4 * rate + (needs.fun < 35 ? 0.3 * rate : 0));
     }
+    // first things first: no gardening while Pip's own tummy or water bar needs topping up
+    const busyWithNeeds = lizard.refill && (lizard.refill.fullness || lizard.refill.hydration) ? 0.3 : 1;
     // gardening, once Pip has read about it
     const seedTypes = Object.keys(this.seeds || {}).filter(t => this.seeds[t] > 0 && TYPES[t]);
     const growing = mem.filter(m => m.type === 'seedling' || m.type === 'plant').length;
@@ -151,12 +189,12 @@ class Brain {
       const s = this.skills.plant || { n: 0, hits: 0 };
       const t = seedTypes[Math.floor(Math.random() * seedTypes.length)];
       const spot = this.farmSpot(lizard, growing);
-      push({ verb: 'plant', type: t, objId: null, x: spot.x, y: spot.y }, (s.hits < 1 ? 0.7 * ready : 0.35) + (needs.fullness < 60 ? 0.25 : 0));
+      push({ verb: 'plant', type: t, objId: null, x: spot.x, y: spot.y }, (s.hits < 1 ? 0.7 * ready : 0.35) * busyWithNeeds);
     }
     if (this.hasIdea('tend')) {
       const w = lizard.worldRef;
-      const dry = mem.find(m => m.type === 'seedling' && w && w.get(m.id) && !(w.get(m.id).water > 0));
-      if (dry) push({ verb: 'tend', type: 'seedling', objId: dry.id, x: dry.x, y: dry.y }, 0.45);
+      const dry = mem.filter(m => m.type === 'seedling' && w && w.get(m.id) && !(w.get(m.id).water > 0)).sort((a, b) => (w.get(b.id).thirst || 0) - (w.get(a.id).thirst || 0))[0];
+      if (dry) push({ verb: 'tend', type: 'seedling', objId: dry.id, x: dry.x, y: dry.y }, (0.45 + Math.min(0.6, (w.get(dry.id).thirst || 0) / 300)) * busyWithNeeds);
     }
     if (this.hasIdea('break')) {
       const s = this.skills.break || { n: 0, hits: 0 };
@@ -190,6 +228,7 @@ class Brain {
 
   // What is on Pip's mind that a book could answer?
   question(lizard, task, desperateFor) {
+    if (this.garden && this.garden.wonderSoil && !this.hasIdea('grass')) return { kind: 'garden', idea: 'grass', val: 0.9 };
     if (task && task.auto && task.words.some(w => { const m = this.meaning(w); return !m || !m.type; })) return { kind: 'word', val: 1.3 };
     for (const [verb, val] of Object.entries(desperateFor)) {
       // only worth looking up if Pip has no idea at all what helps (otherwise: go and find it)
@@ -593,6 +632,7 @@ class Brain {
 
   reactionCore(t, v, delta, firstTime) {
     const T = typeInfo(t);
+    if (v === 'eat' && T && T.cooked && (delta.fullness || 0) > 20) return { mood: 'happy', text: pick([`Mmm! The ${T.emoji} ${T.name} is SO much better than plain food! 🤤`, `That ${T.emoji} filled me right up. Cooking is worth it! 😋`, `Best. Meal. Ever. ${T.emoji}`]) };
     let total = 0;
     // warmth changes are neither good nor bad by themselves, so they don't count here
     for (const n of NEEDS) if (n !== 'warmth' && (n !== 'energy' || delta[n] > 0)) total += (delta[n] || 0) * (n === 'health' ? 2 : 1);

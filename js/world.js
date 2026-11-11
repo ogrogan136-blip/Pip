@@ -55,6 +55,7 @@ const TYPES = {
   bone:     { emoji: '🦴', name: 'bone',       size: 12, hidden: true },
   nest:     { emoji: '🪹', name: 'nest',       size: 24, hidden: true },
   den:      { emoji: '⛺', name: 'den',        size: 26, hidden: true },
+  grass:    { emoji: '🌿', name: 'grass patch', size: 70, patch: true, words: ['grass', 'patch', 'garden', 'soil'] },
   seedling: { emoji: '🌱', name: 'seedling',   size: 10, hidden: true },
   plant:    { emoji: '🪴', name: 'food plant', size: 20, hidden: true },
   cricketbox: { emoji: '📦', name: 'cricket box', size: 20, hidden: true },
@@ -68,7 +69,7 @@ function typeInfo(t) { return t === 'ground' ? GROUND : TYPES[t]; }
 const EFFECTS = {
   cricket:  { eat: { fullness: 30, fun: 6 } },
   mealworm: { eat: { fullness: 22 } },
-  lettuce:  { eat: { fullness: 10, hydration: 10 } },
+  lettuce:  { eat: { fullness: 8, hydration: 8 } },
   berry:    { eat: { fullness: 12, hydration: 5, fun: 3 } },
   flower:   { eat: { fullness: 5, fun: 4 }, play: { fun: 6 } },
   mushroom: { eat: { fullness: 4, health: -25, fun: -10 } },
@@ -82,6 +83,7 @@ const EFFECTS = {
   ground:   { rest: { energy: 14 } },
   bookstore: { play: { fun: 8 }, rest: { energy: 10 }, eat: { fun: -4 } },
   stick:    { play: { fun: 9 }, eat: { fun: -3 } },
+  grass:    { rest: { energy: 12, fun: 2 }, play: { fun: 5 }, eat: { fullness: 2 } },
   seedling: { eat: { fullness: 2 } },
   plant:    { eat: { fullness: 4 }, rest: { energy: 8 }, play: { fun: 4 } },
   cricketbox: { play: { fun: 5 } },
@@ -105,6 +107,7 @@ class World {
     this.autoFeeder = true;
     this.feederTimer = 0;
     this.fx = [];            // visual events for the renderer (splashes etc.), not saved
+    this.events = [];        // things that happened that Pip might learn from
     if (data) {
       this.objects = data.objects || [];
       this.nextId = data.nextId || (this.objects.reduce((m, o) => Math.max(m, o.id), 0) + 1);
@@ -126,6 +129,7 @@ class World {
     this.add('cactus', 330, 330);
     this.add('mushroom', 680, 380);
     this.add('bookstore', 470, 85);
+    this.add('grass', 600, 500);
   }
 
   toJSON() {
@@ -137,6 +141,13 @@ class World {
     const o = { id: this.nextId++, type, x: clamp(x, 15, WORLD_W - 15), y: clamp(y, 15, WORLD_H - 15), vx: 0, vy: 0, t: Math.random() * 10 };
     this.objects.push(o);
     return o;
+  }
+
+  onGrass(x, y) { return this.objects.some(g => g.type === 'grass' && dist(g.x, g.y, x, y) < TYPES.grass.size - 6); }
+  wither(o, reason) {
+    this.addFx('chips', o.x, o.y);
+    this.events.push({ kind: 'withered', reason, grows: o.grows, x: o.x, y: o.y });
+    this.remove(o.id);
   }
 
   // Keep the tank from overflowing: clear away the oldest bits of clutter.
@@ -192,10 +203,14 @@ class World {
       if (o.held) continue;
       const nearPip = lizard ? dist(o.x, o.y, lizard.x, lizard.y) : 999;
       if (o.type === 'seedling') {
-        // grows on its own, three times faster while watered
-        o.age = (o.age || 0) + dt * ((o.water || 0) > 0 ? 3 : 1);
-        if (o.water > 0) o.water -= dt;
-        if (o.age >= 600) { o.type = 'plant'; o.produce = o.grows || 'berry'; o.timer = 0; this.addFx('sparkle', o.x, o.y); }
+        // Seeds only grow in grass, and only while they've been watered recently.
+        if (o.onGrass === undefined) o.onGrass = this.onGrass(o.x, o.y);
+        if (o.water > 0) { o.water -= dt; o.thirst = 0; if (o.onGrass) o.age = (o.age || 0) + dt; }
+        else o.thirst = (o.thirst || 0) + dt;
+        if (!o.onGrass) o.sandTime = (o.sandTime || 0) + dt;
+        if (!o.onGrass && o.sandTime > 150) { this.wither(o, 'sand'); continue; }
+        if (o.thirst > 300) { this.wither(o, 'dry'); continue; }
+        if ((o.age || 0) >= 600) { o.type = 'plant'; o.produce = o.grows || 'berry'; o.timer = 0; this.addFx('sparkle', o.x, o.y); this.events.push({ kind: 'grown', grows: o.produce, onGrass: true }); }
         continue;
       }
       if (o.type === 'plant' || o.type === 'cricketbox') {

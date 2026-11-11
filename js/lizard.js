@@ -357,9 +357,9 @@ class Lizard {
         brain.seeds[p.type]--;
         world.makeRoom();
         const o = world.add('seedling', this.x + Math.cos(this.heading) * 18, this.y + Math.sin(this.heading) * 18);
-        if (o) { o.grows = p.type; o.age = 0; world.addFx('sand', o.x, o.y); }
+        if (o) { o.grows = p.type; o.age = 0; o.water = 45; o.onGrass = world.onGrass(o.x, o.y); world.addFx('sand', o.x, o.y); }
         s.hits++; mood = 'happy';
-        text = s.hits === 1 ? `I planted a ${TYPES[p.type].emoji} seed! Now I just have to wait for it to grow. 🌱` : `Planted another ${TYPES[p.type].emoji} seed. My garden is growing!`;
+        text = s.hits === 1 ? `I planted a ${TYPES[p.type].emoji} seed! Now I just have to wait for it to grow. 🌱` : o && o.onGrass ? `Planted a ${TYPES[p.type].emoji} seed in the grass. Grow, little seed!` : `Planted another ${TYPES[p.type].emoji} seed.`;
       }
     } else if (p.verb === 'tend') {
       const s = brain.skill('tend');

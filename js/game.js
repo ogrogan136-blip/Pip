@@ -35,6 +35,7 @@ class Game {
     this.lizard.onThought = (text, kind) => this.addLog(text, kind);
     this.lizard.onAction = (t, v, d) => this.handleAction(t, v, d);
     // older saves could have had the water dish, lamp or log tidied away by mistake
+    if (save && (save.v || 1) < 5 && !this.world.objects.some(o => o.type === 'grass')) this.world.add('grass', 600, 500);
     if (save && (save.v || 1) < 4) {
       const has = t => this.world.objects.some(o => o.type === t);
       if (!has('water')) this.world.add('water', 780, 480);
@@ -64,6 +65,10 @@ class Game {
   step(dt) {
     this.world.update(dt, this.lizard);
     this.lizard.update(dt, this.world, this.brain, this.task);
+    while (this.world.events.length) {
+      const text = this.brain.gardenEvent(this.world.events.shift());
+      if (text) { this.lizard.think(text, 'discover'); this.lizard.setMood(/died|dried|shrivel/.test(text) ? 'meh' : 'happy', 4); }
+    }
     if (this.celebrate > 0) this.celebrate -= dt;
     this.askTimer -= dt;
     if (this.askTimer <= 0) {
@@ -169,7 +174,7 @@ class Game {
 
   // ---- save / load ----
   toJSON() {
-    return { v: 4, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question, daydreams: this.daydreams, freeImagination: this.freeImagination };
+    return { v: 5, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question, daydreams: this.daydreams, freeImagination: this.freeImagination };
   }
 }
 
