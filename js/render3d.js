@@ -183,6 +183,51 @@ function buildModel(type) {
       g.userData.winMat = winMat;
       break;
     }
+    case 'stick': {
+      const st = add(mesh(cyl(1.6, 1.3, 26, 7), mat('#8a5a2b', { roughness: 0.9 }), 0, 1.8, 0));
+      st.rotation.z = Math.PI / 2; st.rotation.y = 0.2;
+      add(mesh(cyl(0.9, 0.7, 8, 5), mat('#8a5a2b'), 5, 3, 3)).rotation.set(1.1, 0, 0.6);
+      break;
+    }
+    case 'crab': {
+      const sh = add(mesh(sphere(8, 14), mat('#d9482b', { roughness: 0.45 }), 0, 6, 0));
+      sh.scale.set(1.25, 0.6, 1);
+      for (const s of [-1, 1]) {
+        add(mesh(sphere(3.4, 10), mat('#e85a38'), 8, 6, s * 8));
+        add(mesh(cyl(1, 1, 7, 6), mat('#d9482b'), 4, 5, s * 7)).rotation.x = s * 1.1;
+        add(mesh(sphere(1.2, 8), mat('#111'), 6, 10.5, s * 2.5));
+        add(mesh(cyl(0.4, 0.4, 3, 5), mat('#d9482b'), 6, 9, s * 2.5));
+        for (let i = 0; i < 3; i++) add(mesh(cyl(0.8, 0.6, 9, 5), mat('#c23a20'), -4 + i * 3.5, 3.5, s * 10)).rotation.x = s * 0.9;
+      }
+      break;
+    }
+    case 'shell': {
+      const c = add(mesh(new THREE.ConeGeometry(7, 14, 14), mat('#f3e3cf', { roughness: 0.35 }), 0, 5, 0));
+      c.rotation.z = Math.PI / 2.4;
+      add(mesh(sphere(5.5, 12), mat('#f0cdb0', { roughness: 0.35 }), -4, 5, 0));
+      for (let i = 0; i < 3; i++) add(mesh(new THREE.TorusGeometry(5.5 - i * 1.6, 0.5, 6, 14), mat('#d99b78'), -1 + i * 3.4, 5.6 + i * 1.2, 0)).rotation.set(0, Math.PI / 2, 0.25);
+      break;
+    }
+    case 'bone': {
+      const b = add(mesh(cyl(2, 2, 18, 8), mat('#f2eee2', { roughness: 0.6 }), 0, 3, 0));
+      b.rotation.z = Math.PI / 2;
+      for (const sx of [-9, 9]) for (const sz of [-2.2, 2.2]) add(mesh(sphere(3, 10), mat('#f2eee2'), sx, 3, sz));
+      break;
+    }
+    case 'nest': {
+      const ring = add(mesh(new THREE.TorusGeometry(19, 7, 8, 18), mat('#8a5a2b', { roughness: 1, flatShading: true }), 0, 6, 0));
+      ring.rotation.x = Math.PI / 2;
+      add(mesh(cyl(18, 18, 3, 18), mat('#b08a4f', { roughness: 1 }), 0, 2, 0));
+      for (let i = 0; i < 12; i++) { const s = add(mesh(cyl(1.1, 0.9, 20, 5), mat(i % 2 ? '#7a4f25' : '#9c6b35'), Math.cos(i * 0.52) * 20, 9 + (i % 3), Math.sin(i * 0.52) * 20)); s.rotation.set(Math.PI / 2, 0, i * 0.52 + 0.3); }
+      break;
+    }
+    case 'den': {
+      const tent = add(mesh(new THREE.ConeGeometry(30, 38, 7, 1, true), mat('#6f9b4a', { roughness: 0.9, flatShading: true, side: THREE.DoubleSide }), 0, 19, 0));
+      tent.rotation.y = 0.2;
+      for (let i = 0; i < 7; i++) { const a = i * 0.898 + 0.2; const s = add(mesh(cyl(1.3, 1.3, 46, 5), mat('#8a5a2b'), Math.cos(a) * 15, 20, Math.sin(a) * 15)); s.rotation.set(Math.sin(a) * -0.66, 0, Math.cos(a) * 0.66); }
+      add(mesh(new THREE.CircleGeometry(11, 14), mat('#2a2219', { side: THREE.DoubleSide }), 0, 9, 27.2)).castShadow = false;
+      break;
+    }
     case 'flower': {
       add(mesh(cyl(0.8, 0.8, 16, 6), mat('#4b9a3c'), 0, 8, 0));
       for (let i = 0; i < 8; i++) {
@@ -453,7 +498,7 @@ class Renderer3D {
     const verb = acting ? L.plan.verb : null;
     const sleeping = verb === 'rest' || L.state === 'fainted';
     const w = i => i === 0 ? 10 : i === 1 ? 7.5 : i < 7 ? 10.5 - (i - 2) * 0.3 : Math.max(1.5, 9 - (i - 6) * 0.85);
-    const wig = verb === 'play' ? Math.sin(L.anim * 18) * 4 : 0;
+    const wig = verb === 'play' ? Math.sin(L.anim * 18) * 4 : ['dig', 'break', 'craft'].includes(verb) ? Math.sin(L.anim * 22) * 2.2 : 0;
     const flat = verb === 'bask' ? 0.75 : 1;
     const breathe = 1 + Math.sin(L.anim * (sleeping ? 2 : 4)) * 0.03;
     const faded = L.state === 'fainted';
@@ -483,7 +528,7 @@ class Renderer3D {
     const hx = s[0].x, hy = s[0].y;
     this.head.position.copy(toV(hx, hy, 9 * flat));
     this.head.rotation.set(0, -L.heading, 0);
-    if (verb === 'eat') this.head.rotation.z = -0.25 + Math.sin(L.anim * 14) * 0.2;
+    if (verb === 'eat' || verb === 'dig' || verb === 'break') this.head.rotation.z = -0.25 + Math.sin(L.anim * 14) * 0.2;
     else if (L.state === 'considering') this.head.rotation.z = 0.12;
     else this.head.rotation.z = 0;
     const closed = sleeping || L.blink > 0;
@@ -528,6 +573,10 @@ class Renderer3D {
         this.addRipple(at, 0.6); setTimeout(() => this.addRipple(at, 0.5), 250);
       } else if (e.kind === 'crumbs') {
         for (let i = 0; i < 10; i++) this.addParticle(at, '#c9a35a', 1.2 + Math.random(), 30 + Math.random() * 40, 0.7);
+      } else if (e.kind === 'sand') {
+        for (let i = 0; i < 9; i++) this.addParticle(at.clone().setY(-6), '#d9bb80', 1.4 + Math.random() * 1.4, 40 + Math.random() * 50, 0.7);
+      } else if (e.kind === 'chips') {
+        for (let i = 0; i < 14; i++) this.addParticle(at, '#8a5a2b', 1.2 + Math.random() * 1.2, 40 + Math.random() * 60, 0.8);
       } else if (e.kind === 'ouch') {
         for (let i = 0; i < 8; i++) this.addParticle(at.clone().setY(15), '#ff4b4b', 1.5, 40, 0.6);
       }

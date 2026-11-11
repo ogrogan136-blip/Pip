@@ -49,6 +49,10 @@ class Game {
     this.lizard.update(dt, this.world, this.brain, this.task);
     if (this.celebrate > 0) this.celebrate -= dt;
     this.askTimer -= dt;
+    if (this.askTimer <= 0) {
+      const idea = this.brain.ponder(this.lizard, this.world, 5);
+      if (idea) { this.lizard.think(idea, 'discover'); this.lizard.setMood('curious', 4); }
+    }
     if (this.askTimer <= 0) { this.askTimer = 5; if (!this.nextAsk) this.nextAsk = this.world.time + 45; this.maybeAsk(); }
   }
 

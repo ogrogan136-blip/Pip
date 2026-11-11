@@ -146,6 +146,7 @@ class Lizard {
         const d = dist(this.x, this.y, p.x, p.y);
         if (p.kind === 'act' && p.type === 'ground') { this.startAction(null, p); break; }
         if (d < reachDist) {
+          if (p.kind === 'skill' && !p.objId) { this.startAction(null, p); break; }
           if (p.kind === 'wander') { this.state = 'pausing'; this.timer = 1.5 + Math.random() * 2; this.speed = 0; break; }
           if (!obj) {
             this.memory.delete(p.objId);
@@ -171,6 +172,7 @@ class Lizard {
         this.timer -= dt;
         this.speed = 0;
         if (this.plan.verb === 'eat') this.tongue = 0.1;
+        if (this.plan.verb === 'dig' && Math.random() < dt * 2) world.addFx('sand', this.x + Math.cos(this.heading) * 16, this.y + Math.sin(this.heading) * 16);
         if (this.timer <= 0) this.finishAction(world, brain, task);
         break;
       }
@@ -199,7 +201,7 @@ class Lizard {
     this.state = 'acting';
     this.speed = 0;
     this.actObj = obj;
-    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12 }[plan.verb] || 4;
+    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13 }[plan.verb] || 4;
     this.longSleep = plan.verb === 'rest' && this.needs.energy < 40;
     if (this.longSleep) this.timer = 26; // a proper sleep
     this.inside = !!(obj && TYPES[obj.type].building && ['read', 'play', 'rest'].includes(plan.verb));
@@ -212,6 +214,7 @@ class Lizard {
     this.inside = false;
     if (obj) obj.held = false;
     if (p.type !== 'ground' && !obj) { this.state = 'deciding'; return; }
+    if (p.kind === 'skill') return this.finishSkill(world, brain, obj);
     let delta, r;
     if (p.verb === 'read') {
       // Inside the book shop: look up whatever was on its mind
@@ -238,6 +241,52 @@ class Lizard {
     this.lastAction = { type: p.type, verb: p.verb, time: world.time };
     if (this.onAction) this.onAction(p.type, p.verb, delta);
     if (p.reason === 'curious') brain.satisfyCuriosity(world.time);
+    this.state = 'pausing';
+    this.timer = 6 + Math.random() * 5;
+  }
+
+  // Trying out something Pip wasn't born knowing. Clumsy at first, better with practice.
+  finishSkill(world, brain, obj) {
+    const p = this.plan;
+    let text, mood = 'ok';
+    this.needs.energy = clamp(this.needs.energy - 3, 0, 100);
+    if (p.verb === 'dig') {
+      const s = brain.skill('dig');
+      const chance = Math.min(0.8, 0.3 + 0.1 * s.n) + (brain.tools.digger ? 0.15 : 0);
+      s.n++;
+      if (world.objects.length < 34 && Math.random() < chance) {
+        const found = world.dig(this.x + Math.cos(this.heading) * 20, this.y + Math.sin(this.heading) * 20, brain.tools.digger);
+        const T = TYPES[found];
+        s.hits++;
+        this.needs.fun = clamp(this.needs.fun + 6, 0, 100);
+        text = s.hits === 1 ? `I dug and dug… and there's a ${T.emoji} down here! There ARE things under the sand! 🤯` : `Found a ${T.emoji} ${T.name} under the sand.`;
+        mood = 'happy';
+      } else text = pick(['Just sand. Maybe I should try somewhere else.', 'Nothing here. Hmm.', 'I scratched around but found nothing. I\'m not very good at this yet.']);
+    } else if (p.verb === 'break') {
+      const s = brain.skill('break');
+      const chance = Math.min(0.9, 0.45 + 0.15 * s.n);
+      s.n++;
+      if (Math.random() >= chance) text = 'I pulled at the bark but nothing came off. I\'ll try a different way next time.';
+      else if (!world.breakOff(obj)) { brain.spent[obj.id] = 1; text = 'There\'s nothing more to pull off this one.'; }
+      else { s.hits++; mood = 'happy'; text = s.hits === 1 ? 'CRACK! Bits of the log came off. Sticks! I made sticks! 🤯' : 'Crack. More sticks.'; }
+    } else if (p.verb === 'craft') {
+      const R = RECIPES[p.recipe], s = brain.skill('recipe:' + p.recipe);
+      brain.skill('craft').n++;
+      const chance = Math.min(0.95, 0.5 + 0.2 * s.n);
+      s.n++;
+      if (Math.random() >= chance) text = 'It fell apart. Let me think about how to do it better.';
+      else if (!world.craft(p.recipe, this.x + Math.cos(this.heading) * 22, this.y + Math.sin(this.heading) * 22)) text = 'Hm, I don\'t have everything I need for that.';
+      else {
+        s.hits++; brain.skill('craft').hits++; mood = 'happy';
+        if (R.tool) brain.tools[R.tool] = true;
+        this.needs.fun = clamp(this.needs.fun + 12, 0, 100);
+        text = `I did it! I made ${R.label}! ${s.hits === 1 ? 'All by myself! 🤩' : ''}`;
+      }
+    }
+    brain.stats.actions++;
+    this.think(text, mood === 'happy' ? 'discover' : 'meh');
+    this.setMood(mood === 'happy' ? 'happy' : 'meh');
+    brain.satisfyCuriosity(world.time);
     this.state = 'pausing';
     this.timer = 6 + Math.random() * 5;
   }

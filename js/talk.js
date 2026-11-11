@@ -227,6 +227,12 @@ const Talk = {
       this.question = null;
       return done(this.believe(q.type, verb, u.bad));
     }
+    const hint = u.words.some(w => ['dig', 'burrow', 'bury', 'buried', 'underground'].includes(w)) ? 'dig' : u.words.some(w => ['break', 'snap', 'rip', 'tear', 'apart'].includes(w)) ? 'break' : u.words.some(w => ['craft', 'build', 'make', 'nest', 'den'].includes(w)) ? 'craft' : null;
+    if (hint) {
+      if (hint === 'craft') { this.brain.addIdea('break', 'you'); for (const r of Object.keys(RECIPES)) if (u.words.includes(r)) this.brain.addIdea('recipe:' + r, 'you'); }
+      const fresh = this.brain.addIdea(hint, 'you');
+      return done(fresh ? { dig: 'Dig? In the sand? I never thought of that. I\'ll try!', break: 'Break things apart? Huh. Maybe that log…', craft: 'Build something? Me? I\'d like to try.' }[hint] : 'Yes, I\'ve been thinking about that too.');
+    }
     if ((u.scold && !u.praise) || u.praise) {
       if (u.praise) this.goodPip(); else this.noPip();
       this.chat.push({ from: 'pip', text: this.lizard.thought });

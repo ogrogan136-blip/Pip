@@ -27,6 +27,10 @@ const VERB_INFO = {
   rest:  { icon: '💤', phrase: 'rest on',    ing: 'resting on' },
   play:  { icon: '🤸', phrase: 'play with',  ing: 'playing with' },
   read:  { icon: '📖', phrase: 'read at',    ing: 'reading at' }, // only at the book shop
+  // skills Pip is not born with — it has to get the idea first
+  dig:   { icon: '⛏️', phrase: 'dig in',     ing: 'digging in' },
+  break: { icon: '💪', phrase: 'break up',   ing: 'breaking up' },
+  craft: { icon: '🔨', phrase: 'build',      ing: 'building' },
 };
 
 // What can be placed in the world. `food` = disappears when eaten.
@@ -44,6 +48,13 @@ const TYPES = {
   ball:     { emoji: '⚽', name: 'ball',       size: 14, rolls: true },
   cactus:   { emoji: '🌵', name: 'cactus',     size: 20 },
   flower:   { emoji: '🌼', name: 'flower',     size: 13, food: true },
+  // hidden things: they only show up in the palette once Pip has discovered them
+  stick:    { emoji: '🥢', name: 'stick',      size: 12, hidden: true },
+  crab:     { emoji: '🦀', name: 'crab',       size: 13, food: true, crawls: true, hidden: true },
+  shell:    { emoji: '🐚', name: 'shell',      size: 11, hidden: true },
+  bone:     { emoji: '🦴', name: 'bone',       size: 12, hidden: true },
+  nest:     { emoji: '🪹', name: 'nest',       size: 24, hidden: true },
+  den:      { emoji: '⛺', name: 'den',        size: 26, hidden: true },
   bookstore: { emoji: '📚', name: 'book shop', size: 40, building: true, words: ['bookshop', 'book', 'shop', 'store', 'library'] },
 };
 // 'ground' is a pseudo-object: Pip can nap wherever it is.
@@ -67,6 +78,12 @@ const EFFECTS = {
   cactus:   { eat: { health: -18, fun: -8 }, play: { health: -12 }, rest: { health: -10 }, bask: { health: -8 }, drink: { health: -6 } },
   ground:   { rest: { energy: 14 } },
   bookstore: { play: { fun: 8 }, rest: { energy: 10 }, eat: { fun: -4 } },
+  stick:    { play: { fun: 9 }, eat: { fun: -3 } },
+  crab:     { eat: { fullness: 30, fun: 4 }, play: { health: -5, fun: 5 } },
+  shell:    { play: { fun: 12 }, drink: { hydration: 6 } },
+  bone:     { play: { fun: 13 }, eat: { health: -4 } },
+  nest:     { rest: { energy: 48, fun: 3 }, play: { fun: 4 } },
+  den:      { rest: { energy: 40, warmth: 6 }, play: { fun: 8 } },
 };
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -194,6 +211,39 @@ class World {
 
   // Pip does `verb` to `obj` (null = the ground). Applies the hidden effects
   // to Pip's needs and returns what Pip felt (the raw change).
+  // ----- things Pip can learn to do -----
+  // Digging: is there anything under the sand here?
+  dig(x, y, luck) {
+    this.addFx('sand', x, y);
+    const r = Math.random();
+    const table = luck ? [['mealworm', 0.3], ['crab', 0.55], ['shell', 0.72], ['bone', 0.85], ['berry', 1]] : [['mealworm', 0.4], ['crab', 0.58], ['shell', 0.76], ['bone', 0.9], ['berry', 1]];
+    const type = table.find(([, p]) => r <= p)[0];
+    this.add(type, x, y);
+    return type;
+  }
+  // Pulling a log apart gives sticks, until there's nothing loose left.
+  breakOff(obj) {
+    if ((obj.breaks || 0) >= 3) return 0;
+    obj.breaks = (obj.breaks || 0) + 1;
+    this.addFx('chips', obj.x, obj.y);
+    for (let i = 0; i < 2; i++) { const a = Math.random() * Math.PI * 2; this.add('stick', obj.x + Math.cos(a) * 45, obj.y + Math.sin(a) * 45); }
+    return 2;
+  }
+  hasMaterials(recipe) {
+    return Object.entries(RECIPES[recipe].needs).every(([t, n]) => this.objects.filter(o => o.type === t).length >= n);
+  }
+  craft(recipe, x, y) {
+    if (!this.hasMaterials(recipe)) return false;
+    const R = RECIPES[recipe];
+    for (const [t, n] of Object.entries(R.needs)) {
+      const near = this.objects.filter(o => o.type === t).sort((a, b) => dist(a.x, a.y, x, y) - dist(b.x, b.y, x, y)).slice(0, n);
+      near.forEach(o => this.remove(o.id));
+    }
+    this.addFx('chips', x, y);
+    if (R.makes) this.add(R.makes, x, y);
+    return true;
+  }
+
   // What Pip sees happen when it does something (shown in its thoughts and memory)
   addFx(kind, x, y) {
     this.fx.push({ kind, x, y });
@@ -232,6 +282,13 @@ class World {
     return delta;
   }
 }
+
+// Things that can be built, once Pip works out how.
+const RECIPES = {
+  nest:   { needs: { stick: 3 }, makes: 'nest', label: 'a nest out of sticks' },
+  digger: { needs: { stick: 1 }, makes: null, tool: 'digger', label: 'a digging stick' },
+  den:    { needs: { stick: 2, lettuce: 1 }, makes: 'den', label: 'a den from sticks and leaves' },
+};
 
 // What the books say: the real effect of doing verb to type.
 function truthOf(type, verb) {

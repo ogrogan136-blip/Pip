@@ -33,6 +33,10 @@ class Brain {
     this.stats = { actions: 0, tasksDone: 0, discoveries: 0 };
     this.curiosity = 1;  // personality: how adventurous Pip is
     this.satedUntil = 0; // after experimenting, curiosity takes a while to build up again
+    this.ideas = {};     // things Pip has thought of trying: name -> where the idea came from
+    this.skills = {};    // things Pip has practised: name -> { n: tries, hits: successes }
+    this.tools = {};     // things Pip has made for itself
+    this.spent = {};     // logs with nothing left to pull off
     if (data) Object.assign(this, data);
     // Water play used to do almost nothing; let Pip find out it splashes now.
     const wp = this.effects['water:play'];
@@ -40,7 +44,7 @@ class Brain {
   }
 
   toJSON() {
-    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil };
+    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, ideas: this.ideas, skills: this.skills, tools: this.tools, spent: this.spent, asked: this.asked };
   }
 
   key(t, v) { return t + ':' + v; }
@@ -62,6 +66,76 @@ class Brain {
     this.stats.actions++;
     if (first) this.stats.discoveries++;
     return first;
+  }
+
+  // ---------- ideas and skills ----------
+  hasIdea(name) { return !!(this.ideas[name] || this.skills[name]); }
+  addIdea(name, from) {
+    if (this.hasIdea(name)) return false;
+    this.ideas[name] = from;
+    return true;
+  }
+  skill(name) { return this.skills[name] || (this.skills[name] = { n: 0, hits: 0 }); }
+  // the next thing a book (or a thoughtful moment) could put in Pip's head
+  nextIdea() {
+    if (!this.hasIdea('dig')) return 'dig';
+    if (!this.hasIdea('break')) return 'break';
+    if (!this.hasIdea('craft') && this.seen.stick) return 'craft';
+    if (this.hasIdea('craft')) for (const r of Object.keys(RECIPES)) if (!this.hasIdea('recipe:' + r)) return 'recipe:' + r;
+    return null;
+  }
+
+  // Called every few seconds: slow thoughts that turn experience into new ideas.
+  ponder(lizard, world, secs) {
+    lizard.hungryTime = lizard.needs.fullness < 35 ? (lizard.hungryTime || 0) + secs : 0;
+    lizard.boredTime = lizard.needs.fun < 30 ? (lizard.boredTime || 0) + secs : 0;
+    if ((lizard.hungryTime > 80 || lizard.boredTime > 150) && this.addIdea('dig', 'thinking')) {
+      return lizard.hungryTime > 80 ? 'I\'ve been hungry for ages… is this really all there is? What about under the sand? 🤔' : 'I wonder what\'s underneath all this sand… 🤔';
+    }
+    const logPlay = this.known('log', 'play');
+    if (logPlay && logPlay.n >= 3 && this.addIdea('break', 'playing')) return 'The bark on that log is loose. I wonder if I could pull bits off… 🤔';
+    const stickPlay = this.known('stick', 'play');
+    if (stickPlay && stickPlay.n >= 2 && this.addIdea('craft', 'playing')) return 'These sticks stack up nicely. Maybe I could build something? 🤔';
+    if (this.hasIdea('craft') && this.skills.craft && Math.random() < 0.15) {
+      for (const r of Object.keys(RECIPES)) {
+        if (!this.hasIdea('recipe:' + r) && world.hasMaterials(r)) { this.addIdea('recipe:' + r, 'thinking'); return `What if I made ${RECIPES[r].label}? 🤔`; }
+      }
+    }
+    return null;
+  }
+
+  // Things Pip could do with the skills it has (or has only thought of so far).
+  skillCandidates(lizard, weights, desperateFor, now) {
+    const out = [], needs = lizard.needs;
+    const ready = Math.max(0.5, this.curiosityReadiness(now));
+    const mem = [...lizard.memory.values()];
+    const count = t => mem.filter(m => m.type === t).length;
+    const push = (c, score) => out.push(Object.assign({ kind: 'skill', score, parts: { curious: score } }, c));
+    if (this.hasIdea('dig')) {
+      const s = this.skills.dig || { n: 0, hits: 0 };
+      const rate = (s.hits + 1) / (s.n + 2);
+      const a = Math.random() * Math.PI * 2, r = 50 + Math.random() * 110;
+      const hungry = desperateFor.eat || (weights.fullness > 0.9 && !mem.some(m => this.known(m.type, 'eat') && this.known(m.type, 'eat').d.fullness >= 8) ? 0.6 : 0);
+      push({ verb: 'dig', type: 'ground', objId: null, x: clamp(lizard.x + Math.cos(a) * r, 40, WORLD_W - 40), y: clamp(lizard.y + Math.sin(a) * r, 40, WORLD_H - 40) },
+        (s.n < 3 ? 0.75 * ready : 0.08) + hungry * 1.4 * rate + (needs.fun < 35 ? 0.3 * rate : 0));
+    }
+    if (this.hasIdea('break')) {
+      const s = this.skills.break || { n: 0, hits: 0 };
+      const log = mem.find(m => m.type === 'log' && !this.spent[m.id]);
+      const wantSticks = this.hasIdea('craft') && count('stick') < 3;
+      if (log) push({ verb: 'break', type: 'log', objId: log.id, x: log.x, y: log.y }, (s.hits < 1 ? 0.75 * ready : 0.04) + (wantSticks ? 0.6 : 0));
+    }
+    if (this.hasIdea('craft')) {
+      for (const [r, R] of Object.entries(RECIPES)) {
+        if (!this.hasIdea('recipe:' + r)) continue;
+        if (!Object.entries(R.needs).every(([t, n]) => count(t) >= n)) continue;
+        const want = R.tool ? !this.tools[R.tool] && this.hasIdea('dig') : count(R.makes) === 0;
+        if (!want) continue;
+        const first = mem.find(m => m.type === Object.keys(R.needs)[0]);
+        push({ verb: 'craft', type: R.makes || 'stick', recipe: r, objId: first.id, x: first.x, y: first.y }, 0.85);
+      }
+    }
+    return out;
   }
 
   // ---------- learning from books ----------
@@ -88,6 +162,7 @@ class Brain {
       if (!TYPES[t] || TYPES[t].building) continue;
       if (VERBS.some(v => !this.known(t, v))) return { kind: 'wonder', val: 0.35 + 0.7 * (100 - lizard.needs.fun) / 100 };
     }
+    if (this.nextIdea()) return { kind: 'wonder', val: 0.3 + 0.5 * (100 - lizard.needs.fun) / 100 };
     return null;
   }
 
@@ -113,6 +188,15 @@ class Brain {
         this.learnFromBook(t, q.verb, truthOf(t, q.verb));
         return `The book says you can ${VERB_INFO[q.verb].phrase} a ${T.emoji} ${T.name}. I should find one! 📖`;
       }
+    }
+    // sometimes the book is about something Pip never thought of at all
+    const idea = this.nextIdea();
+    if (idea && Math.random() < 0.4) {
+      this.addIdea(idea, 'a book');
+      if (idea === 'dig') return 'This book is about animals that dig for food under the sand. I never thought of that! 📖';
+      if (idea === 'break') return 'The book shows an animal pulling a log apart to get sticks. Could I do that? 📖';
+      if (idea === 'craft') return 'This book is all about building things out of sticks. Building! 📖';
+      return `The book shows how to make ${RECIPES[idea.slice(7)].label}. I want to try! 📖`;
     }
     // otherwise: read about something it has seen and wondered about
     const pairs = [];
@@ -317,6 +401,7 @@ class Brain {
       for (const v of VERBS) consider(mem, mem.type, v);
     }
     consider(null, 'ground', 'rest'); // nap right here
+    for (const c of this.skillCandidates(lizard, weights, desperateFor, now)) candidates.push(c);
 
     // Wandering: explore to find new things. More appealing when nothing known is useful.
     const unseenBias = Object.keys(TYPES).length - Object.keys(this.seen).length > 0 ? 0.1 : 0;
@@ -342,6 +427,7 @@ class Brain {
 
   reasonFor(c) {
     if (c.kind === 'wander') return 'explore';
+    if (c.kind === 'skill') return 'skill';
     if (c.kind === 'idle') return 'idle';
     let best = 'need', bv = -Infinity;
     for (const k of ['need', 'curious', 'praise', 'task']) if (c.parts[k] > bv) { bv = c.parts[k]; best = k; }
@@ -361,7 +447,14 @@ class Brain {
   // Pip's thoughts are short and plain, like a person muttering to themselves.
   thoughtFor(c, lizard, task, weights) {
     if (c.kind === 'idle') {
+      if (Math.random() < 0.35) { const m = this.musing(); if (m) return m; }
       return pick(['…', 'Nice and quiet.', 'Just watching.', 'This is a good spot.', 'Hmm.', 'I like it here.', 'What a day.']);
+    }
+    if (c.kind === 'skill') {
+      const s = this.skills[c.verb === 'craft' ? 'recipe:' + c.recipe : c.verb];
+      if (c.verb === 'dig') return !s || !s.n ? 'Let me try scratching at the sand here…' : pick(['Maybe there\'s something buried here.', 'Time to dig.', 'I\'ll try digging over there.']);
+      if (c.verb === 'break') return !s || !s.hits ? 'Let me see if I can pull a bit off this log…' : 'I need more sticks. Back to the log.';
+      return !s || !s.hits ? `Let me try to make ${RECIPES[c.recipe].label}…` : `I'll make ${RECIPES[c.recipe].label}.`;
     }
     if (c.kind === 'wander') {
       if (c.search) return pick(['I need to find something… let me look around.', 'There must be something around here.']);
@@ -396,6 +489,29 @@ class Brain {
           play: [`I'm bored. Let's play with the ${name}!`, `The ${name} is always fun.`],
         }[c.verb]);
     }
+  }
+
+  // A quiet thought about something Pip has learned.
+  musing() {
+    const pending = Object.keys(this.ideas).filter(i => !this.skills[i]);
+    if (pending.length && Math.random() < 0.5) {
+      const i = pending[0];
+      return i === 'dig' ? 'I keep thinking about what\'s under the sand…' : i === 'break' ? 'That log… I bet bits would come off.' : i === 'craft' ? 'I could build something. But what?' : `I still want to try making ${RECIPES[i.slice(7)].label}.`;
+    }
+    const foods = [], hurts = [];
+    for (const [k, e] of Object.entries(this.effects)) {
+      const [t, v] = k.split(':');
+      if (!TYPES[t] || !e.n) continue;
+      if (v === 'eat' && (e.d.fullness || 0) >= 8) foods.push(TYPES[t]);
+      if ((e.d.health || 0) < -3) hurts.push(TYPES[t]);
+    }
+    const opts = [];
+    if (foods.length >= 2) opts.push(`${foods[0].emoji} and ${foods[1].emoji} both fill my tummy. Funny, they look so different.`);
+    if (foods.length === 1) opts.push(`I only know one thing to eat: ${foods[0].emoji}. There must be more.`);
+    if (hurts.length) opts.push(`I still remember that ${pick(hurts).emoji}. Never again.`);
+    if (this.skills.dig && this.skills.dig.hits) opts.push('Who knew there was so much under the sand?');
+    if (this.tools.digger) opts.push('I made my own digging stick. Me!');
+    return opts.length ? pick(opts) : null;
   }
 
   describeEffect(d) {

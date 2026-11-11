@@ -10,6 +10,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - **Uses what it learned** to decide what to do next, depending on what it needs most right now. When it's hungry it goes for food it knows works; when it's bored it explores and experiments.
 - **Learns to avoid** things that hurt it, and even steers around them.
 - **Reads books.** When something is on its mind (a word it doesn't know, a need it can't solve, a thing it wonders about), it walks into the 📚 book shop and looks it up.
+- **Gets ideas over time.** After long hunger it wonders what's under the sand and learns to dig (finding crabs, shells and more). Playing with logs leads to pulling sticks off them, and sticks lead to building a nest, a den and a digging stick. Books and hints from you can plant these ideas too. Every skill starts clumsy and improves with practice.
 - **Thinks out loud.** The 💭 box and the thoughts log show its reasoning.
 
 ## What you can do

@@ -23,7 +23,8 @@
   const palette = $('palette');
   function buildPalette() {
     palette.innerHTML = '';
-    const tools = [['hand', '✋', 'Pet / move'], ...Object.entries(TYPES).map(([k, t]) => [k, t.emoji, t.name]), ['remove', '🧹', 'Remove']];
+    // hidden things appear once Pip has discovered them
+    const tools = [['hand', '✋', 'Pet / move'], ...Object.entries(TYPES).filter(([k, t]) => !t.hidden || game.brain.seen[k]).map(([k, t]) => [k, t.emoji, t.name]), ['remove', '🧹', 'Remove']];
     for (const [k, e, label] of tools) {
       const b = document.createElement('button');
       b.dataset.tool = k;
@@ -32,7 +33,7 @@
       b.onclick = () => setTool(k);
       palette.appendChild(b);
     }
-    if (!TYPES[ui.tool] && ui.tool !== 'remove') ui.tool = 'hand';
+    if ((!TYPES[ui.tool] || (TYPES[ui.tool].hidden && !game.brain.seen[ui.tool])) && ui.tool !== 'remove') ui.tool = 'hand';
     setTool(ui.tool);
   }
   function setTool(k) {
@@ -143,6 +144,7 @@
     const keep = typeSel.value || 'ball';
     typeSel.innerHTML = '';
     for (const [k, t] of Object.entries(TYPES)) {
+      if (t.hidden && !game.brain.seen[k]) continue;
       const o = document.createElement('option');
       o.value = k; o.textContent = `${t.emoji} ${t.name}`;
       typeSel.appendChild(o);
@@ -191,6 +193,7 @@
   }
 
   // ---------- brain panel ----------
+  let lastSeenCount = -1;
   const needShort = { fullness: '🍖', hydration: '💧', energy: '⚡', warmth: '🔥', fun: '🎾', health: '❤️' };
   function renderBrain() {
     const k = game.brain.knowledge();
@@ -210,6 +213,15 @@
         return `<div class="row"><span class="e" title="${T.name}">${T.emoji}</span><div>${chips}</div></div>`;
       }).join('');
     }
+    // skills and ideas
+    const b = game.brain, sk = [];
+    const label = n => n.startsWith('recipe:') ? 'make ' + RECIPES[n.slice(7)].label : { dig: '⛏️ dig in the sand', break: '💪 pull logs apart', craft: '🔨 build things' }[n];
+    for (const n of Object.keys(b.skills)) { const s2 = b.skills[n]; if (label(n)) sk.push(`<span class="chip ${s2.hits ? 'good' : ''}" title="tried ${s2.n}×, worked ${s2.hits}×">${escapeHtml(label(n))}${s2.hits ? '' : ' · still practising'}</span>`); }
+    for (const n of Object.keys(b.ideas)) if (!b.skills[n] && label(n)) sk.push(`<span class="chip" title="idea from ${escapeHtml(b.ideas[n])}">💡 ${escapeHtml(label(n))}?</span>`);
+    if (b.tools.digger) sk.push('<span class="chip good">has a digging stick</span>');
+    $('skills').innerHTML = sk.length ? sk.join('') : '<div class="empty">None yet. Ideas come with time, play and books.</div>';
+    const seenCount = Object.keys(b.seen).length;
+    if (seenCount !== lastSeenCount) { lastSeenCount = seenCount; buildPalette(); buildTypeSelect(); }
     const s = game.brain.stats;
     $('stats').textContent = `· ${s.actions} things tried · ${s.books || 0} read in books · ${s.tasksDone} tasks done`;
     const words = Object.keys(game.brain.words).map(w => [w, game.brain.meaning(w)]).filter(([, m]) => m && (m.type || m.verb));
