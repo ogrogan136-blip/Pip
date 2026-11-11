@@ -66,21 +66,21 @@ function buildModel(type, o) {
       break;
     }
     case 'lettuce': {
-      for (let i = 0; i < 6; i++) {
-        const leaf = add(mesh(jitterGeo(sphere(9, 10), 3, i + 3), mat(i < 2 ? '#a5d65a' : '#6fb53d', { roughness: 0.6 }), 0, 6, 0));
-        leaf.scale.set(1, 0.35, 0.6);
-        leaf.rotation.y = i * 1.05; leaf.rotation.z = 0.4 + (i % 3) * 0.2;
-        leaf.position.set(Math.cos(i) * 3, 4 + i * 0.6, Math.sin(i) * 3);
-      }
+      // a picked lettuce head
+      const head = buildCrop('lettuce', 0.85, { soil: false });
+      head.scale.setScalar(0.8); head.position.y = -1;
+      g.add(head);
       break;
     }
     case 'berry': {
-      const b = add(mesh(sphere(7), mat('#d8323c', { roughness: 0.35 }), 0, 7, 0));
-      b.scale.set(1, 1.15, 1);
-      for (let i = 0; i < 3; i++) {
-        const leaf = add(mesh(sphere(3, 6), mat('#3c8a2e'), Math.cos(i * 2.1) * 3, 14.5, Math.sin(i * 2.1) * 3));
-        leaf.scale.set(1.4, 0.3, 0.6); leaf.rotation.y = -i * 2.1;
-      }
+      // a ripe strawberry lying on its side
+      const sb = new THREE.Group();
+      const body = mesh(new THREE.ConeGeometry(5.5, 10, 14), mat('#d32f2f', { roughness: 0.3 }), 0, -1, 0); body.rotation.x = Math.PI; sb.add(body);
+      const top = mesh(sphere(5.5, 14), mat('#d32f2f', { roughness: 0.3 }), 0, 3.5, 0); top.scale.y = 0.55; sb.add(top);
+      for (let q = 0; q < 5; q++) { const lf = mesh(sphere(2.4, 6), mat('#2e7d32'), Math.cos(q * 1.257) * 2.6, 6.2, Math.sin(q * 1.257) * 2.6); lf.scale.set(1.4, 0.3, 0.7); lf.rotation.y = -q * 1.257; sb.add(lf); }
+      for (let q = 0; q < 16; q++) { const yy = -4 + (q % 4) * 2.2, rr = 1.2 + (yy + 4) * 0.5; sb.add(mesh(sphere(0.35, 4), mat('#f6d55c'), Math.cos(q * 1.9) * rr, yy, Math.sin(q * 1.9) * rr)); }
+      sb.rotation.z = Math.PI / 2.3; sb.position.y = 5.5;
+      g.add(sb);
       break;
     }
     case 'mushroom': {
@@ -201,36 +201,31 @@ function buildModel(type, o) {
       break;
     }
     case 'grass': {
-      const patch = add(mesh(cyl(70, 72, 1.6, 40), mat('#4f8a2c', { roughness: 1 }), 0, 0.8, 0));
-      patch.castShadow = false;
-      const inner = add(mesh(cyl(64, 64, 0.4, 40), mat('#5e9a33', { roughness: 1 }), 0, 1.7, 0));
-      inner.castShadow = false;
       let sd = 3; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
-      for (let i = 0; i < 46; i++) {
-        const a = rr() * Math.PI * 2, d = 6 + rr() * 60;
-        const blade = mesh(new THREE.ConeGeometry(1.1, 5 + rr() * 6, 4), mat(i % 3 ? '#5f9433' : '#8cc152'), Math.cos(a) * d, 4, Math.sin(a) * d);
-        blade.castShadow = false; blade.rotation.set((rr() - 0.5) * 0.5, 0, (rr() - 0.5) * 0.5);
+      const shape = new THREE.Shape();
+      for (let i = 0; i <= 40; i++) { const a = i / 40 * Math.PI * 2, r = 66 + Math.sin(i * 1.7) * 3 + Math.sin(i * 0.6) * 2; i ? shape.lineTo(Math.cos(a) * r, Math.sin(a) * r) : shape.moveTo(Math.cos(a) * r, Math.sin(a) * r); }
+      const turf = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 1.6, bevelEnabled: false }), mat('#4f8a2c', { roughness: 1 }));
+      turf.rotation.x = -Math.PI / 2; turf.receiveShadow = true; g.add(turf);
+      for (let i = 0; i < 12; i++) { const a = rr() * Math.PI * 2, d = rr() * 50; const p = mesh(new THREE.CircleGeometry(6 + rr() * 10, 10), mat(i % 2 ? '#5a9735' : '#467d27', { roughness: 1 }), Math.cos(a) * d, 1.7, Math.sin(a) * d); p.rotation.x = -Math.PI / 2; p.castShadow = false; g.add(p); }
+      for (let i = 0; i < 140; i++) {
+        const a = rr() * Math.PI * 2, d = Math.sqrt(rr()) * 64;
+        const blade = mesh(new THREE.ConeGeometry(0.7, 3 + rr() * 6, 3), mat(['#5f9433', '#7fb247', '#4a7f2a', '#8cc152'][i % 4]), Math.cos(a) * d, 3, Math.sin(a) * d);
+        blade.castShadow = false; blade.rotation.set((rr() - 0.5) * 0.6, rr() * 3, (rr() - 0.5) * 0.6);
         g.add(blade);
       }
+      for (let i = 0; i < 6; i++) { const a = rr() * Math.PI * 2, d = 20 + rr() * 40; for (let q = 0; q < 3; q++) { const c = mesh(sphere(1.1, 6), mat('#6cab3f'), Math.cos(a) * d + Math.cos(q * 2.1) * 1.1, 2.2, Math.sin(a) * d + Math.sin(q * 2.1) * 1.1); c.scale.y = 0.3; c.castShadow = false; g.add(c); } }
+      for (let i = 0; i < 4; i++) { const a = rr() * Math.PI * 2, d = 25 + rr() * 35; g.add(mesh(sphere(0.9, 6), mat('#ffffff'), Math.cos(a) * d, 3.2, Math.sin(a) * d)); }
+      // a border of flat stones around the garden
+      for (let i = 0; i < 30; i++) { const a = i / 30 * Math.PI * 2, r = 68 + Math.sin(i * 1.7 * 40 / 30) * 2; const st = mesh(jitterGeo(new THREE.DodecahedronGeometry(3.4 + rr() * 1.5, 0), 0.8, i + 4), mat(['#a39d92', '#8d877d', '#b7afa2'][i % 3], { flatShading: true }), Math.cos(a) * r, 1.6, Math.sin(a) * r); st.scale.y = 0.45; g.add(st); }
       break;
     }
-    case 'seedling': {
-      add(mesh(cyl(9, 10, 2, 14), mat('#7a5a3a', { roughness: 1 }), 0, 1, 0));
-      const sprout = new THREE.Group();
-      sprout.add(mesh(cyl(0.7, 0.9, 10, 6), mat('#4b9a3c'), 0, 5, 0));
-      for (const s of [-1, 1]) { const l = mesh(sphere(3, 8), mat('#6fbf45'), s * 3, 10, 0); l.scale.set(1.3, 0.35, 0.8); l.rotation.z = s * 0.4; sprout.add(l); }
-      g.add(sprout); g.userData.sprout = sprout;
-      break;
-    }
+    case 'seedling':
     case 'plant': {
-      const prod = TYPES[o && o.produce] || TYPES.berry;
-      const leaf = { lettuce: '#6fb53d', berry: '#3c8a2e', flower: '#4b9a3c' }[o && o.produce] || '#4f9a3f';
-      add(mesh(cyl(12, 13, 3, 14), mat('#7a5a3a', { roughness: 1 }), 0, 1.5, 0));
-      const bush = add(mesh(jitterGeo(sphere(15, 12), 4, 9), mat(leaf, { roughness: 0.8, flatShading: true }), 0, 16, 0));
-      bush.scale.y = 0.85;
-      const fruit = prod.custom ? prod.color : ({ berry: '#d8323c', lettuce: '#a5d65a', flower: '#ffd23f' }[o && o.produce] || '#e85a38');
-      for (let i = 0; i < 6; i++) add(mesh(sphere(2.6, 8), mat(fruit, { roughness: 0.4 }), Math.cos(i * 1.1) * 12, 13 + (i % 3) * 5, Math.sin(i * 1.1) * 12));
-      g.userData.labelEmoji = prod.emoji;
+      const st = cropState(o || {});
+      const prod = (o && (o.grows || o.produce)) || 'berry';
+      const PT = TYPES[prod] || TYPES.berry;
+      g.add(buildCrop(cropKind(prod), st.g, { droop: st.droop, wet: st.wet, mature: st.mature, ripe: st.ripe, color: PT.custom ? PT.color : null }));
+      if (type === 'plant' && cropKind(prod) === 'generic') g.userData.labelEmoji = PT.emoji; // real crops are recognisable without a label
       break;
     }
     case 'cricketbox': {
@@ -506,6 +501,9 @@ class Renderer3D {
     }
     this.scene.add(L);
     this.lizardGroup = L;
+    // a seed held in Pip's mouth on the way to plant it
+    this.seed = mesh(sphere(1.3, 8), mat('#8a6a3a')); this.seed.scale.set(1, 0.7, 1.5); this.seed.visible = false;
+    this.scene.add(this.seed);
   }
 
   syncObjects(world) {
@@ -514,11 +512,18 @@ class Renderer3D {
       alive.add(o.id);
       let m = this.objMeshes.get(o.id);
       // a seedling that grew up: rebuild its model
-      if (m && m.userData.type !== o.type) { this.scene.remove(m); this.objMeshes.delete(o.id); m = null; }
+      const stKey = (o.type === 'seedling' || o.type === 'plant') ? cropState(o).key : '';
+      if (m && (m.userData.type !== o.type || m.userData.stKey !== stKey)) {
+        this.scene.remove(m); this.objMeshes.delete(o.id);
+        m.traverse(x => { if (x.geometry) x.geometry.dispose(); });
+        m = null;
+      }
       if (!m) {
         m = buildModel(o.type, o);
         m.userData.id = o.id;
         m.userData.type = o.type;
+        m.userData.stKey = (o.type === 'seedling' || o.type === 'plant') ? cropState(o).key : '';
+        if (o.type === 'seedling' || o.type === 'plant') { m.scale.setScalar(1); m.userData.grow = 1; }
         if (!TYPES[o.type].building) m.rotation.y = (o.id * 2.39) % (Math.PI * 2);
         if (TYPES[o.type].heat) {
           const glow = new THREE.Mesh(new THREE.PlaneGeometry(TYPES[o.type].heat * 2, TYPES[o.type].heat * 2), new THREE.MeshBasicMaterial({ map: this.glowTex, transparent: true, depthWrite: false }));
@@ -561,11 +566,6 @@ class Renderer3D {
           const axis = new THREE.Vector3(o.vy, 0, -o.vx).normalize();
           m.userData.ball.rotateOnWorldAxis(axis, -sp / 60 / 13 * 2);
         }
-      }
-      if (m.userData.sprout) {
-        const g2 = 0.5 + Math.min(1, (o.age || 0) / 600) * 1.3, droop = Math.min(1, (o.thirst || 0) / 300) + (o.onGrass === false ? Math.min(1, (o.sandTime || 0) / 150) : 0);
-        m.userData.sprout.scale.set(g2, g2 * (1 - 0.5 * Math.min(1, droop)), g2);
-        m.userData.sprout.rotation.z = Math.min(1, droop) * 0.7;
       }
       if (m.userData.water) m.userData.water.position.y = 8.4 + Math.sin(o.t * 2) * 0.2;
       if (m.userData.winMat) m.userData.winMat.emissiveIntensity = 0.25 + (1 - world.daylight) * 1.6 + (this.reading === o.id ? 0.8 : 0);
@@ -618,6 +618,9 @@ class Renderer3D {
     this.tongue.visible = L.tongue > 0 && !sleeping;
     if (this.tongue.visible) { const len = 8 + Math.sin(L.tongue * 40) * 4; this.tongueStem.scale.y = len; this.tongueStem.position.x = len / 2; this.tongue.children.slice(1).forEach(f => { f.position.x = len + 1; }); }
 
+    const planting = L.plan && L.plan.verb === 'plant' && (L.state === 'moving' || L.state === 'considering' || L.state === 'acting');
+    this.seed.visible = !!planting;
+    if (planting) this.seed.position.copy(toV(hx + Math.cos(L.heading) * 17, hy + Math.sin(L.heading) * 17, L.state === 'acting' ? 2 : 7));
     // legs with planted feet (same gait as before)
     if (!L.feet) L.feet = [2, 2, 6, 6].map((si, j) => ({ si, side: j % 2 ? 1 : -1, x: s[si].x, y: s[si].y, tx: s[si].x, ty: s[si].y, lift: 0 }));
     L.feet.forEach((f, k) => {
