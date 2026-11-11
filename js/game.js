@@ -14,6 +14,9 @@ class Game {
     this.chat = (save && save.chat) || [];
     this.question = (save && save.question) || null;
     this.nextAsk = 0;
+    this.daydreams = (save && save.daydreams) || [];
+    this.freeImagination = !save || save.freeImagination !== false;
+    this.nextDream = 0;
     this.askTimer = 5;
     this.world = new World(save && save.world);
     this.world.objects = this.world.objects.filter(o => TYPES[o.type]);
@@ -52,6 +55,8 @@ class Game {
     if (this.askTimer <= 0) {
       const idea = this.brain.ponder(this.lizard, this.world, 5);
       if (idea) { this.lizard.think(idea, 'discover'); this.lizard.setMood('curious', 4); }
+      if (!this.nextDream) this.nextDream = this.world.time + 120 + Math.random() * 120;
+      else maybeDaydream(this);
     }
     if (this.askTimer <= 0) { this.askTimer = 5; if (!this.nextAsk) this.nextAsk = this.world.time + 45; this.maybeAsk(); }
   }
@@ -144,7 +149,7 @@ class Game {
 
   // ---- save / load ----
   toJSON() {
-    return { v: 3, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question };
+    return { v: 3, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question, daydreams: this.daydreams, freeImagination: this.freeImagination };
   }
 }
 

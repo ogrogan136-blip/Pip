@@ -267,7 +267,7 @@
     if (!(AI.ready && $('aiOn').checked)) { game.say(t); renderChat(); return; }
     game.youSay(t); renderChat();
     AI.busy = true; showThinking(true);
-    try { applyAiReply(game, await AI.reply(game, t)); }
+    try { const r = await AI.reply(game, t); if (r && typeof r === 'object') r._asked = t; applyAiReply(game, r); }
     catch (err) { aiProblem(AI.handleError(err)); game.chat.pop(); game.say(t); }
     finally { AI.busy = false; showThinking(false); chatSig = null; renderChat(); save(); }
   });
@@ -320,6 +320,8 @@
   // ---------- settings ----------
   $('autoFeeder').checked = game.world.autoFeeder;
   $('autoFeeder').onchange = e => { game.world.autoFeeder = e.target.checked; };
+  $('freeImagination').checked = game.freeImagination;
+  $('freeImagination').onchange = e => { game.freeImagination = e.target.checked; };
   $('showIntent').onchange = e => { ui.showIntent = e.target.checked; };
   $('curiosity').value = game.brain.curiosity;
   $('curiosity').oninput = e => { game.brain.curiosity = +e.target.value; };

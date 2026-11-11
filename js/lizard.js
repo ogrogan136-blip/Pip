@@ -254,7 +254,8 @@ class Lizard {
       const s = brain.skill('dig');
       const chance = Math.min(0.8, 0.3 + 0.1 * s.n) + (brain.tools.digger ? 0.15 : 0);
       s.n++;
-      if (world.objects.length < 34 && Math.random() < chance) {
+      if (Math.random() < chance) {
+        world.makeRoom();
         const found = world.dig(this.x + Math.cos(this.heading) * 20, this.y + Math.sin(this.heading) * 20, brain.tools.digger);
         const T = TYPES[found];
         s.hits++;

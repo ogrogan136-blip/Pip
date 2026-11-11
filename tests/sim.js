@@ -1,8 +1,8 @@
 // Headless check that Pip learns: run with `node tests/sim.js`
 const fs = require('fs'), path = require('path'), vm = require('vm');
-const ctx = { console, Math, Date, Map, Set, JSON, Object };
+const ctx = { console, Math, Date, Map, Set, JSON, Object, window: {} };
 vm.createContext(ctx);
-const src = ['world', 'brain', 'lizard', 'talk', 'game'].map(f => fs.readFileSync(path.join(__dirname, '../js', f + '.js'), 'utf8')).join('\n');
+const src = ['world', 'brain', 'lizard', 'talk', 'ai', 'game'].map(f => fs.readFileSync(path.join(__dirname, '../js', f + '.js'), 'utf8')).join('\n');
 vm.runInContext(src + '\n;this.Game=Game;this.TYPES=TYPES;', ctx);
 const { Game } = ctx;
 

@@ -133,6 +133,16 @@ class World {
     return o;
   }
 
+  // Keep the tank from overflowing: clear away the oldest bits of clutter.
+  makeRoom(max = 60) {
+    const clutter = ['stick', 'shell', 'bone', 'flower', 'ladybug', 'mushroom'];
+    while (this.objects.length >= max) {
+      const old = this.objects.find(o => clutter.includes(o.type)) || this.objects.find(o => !TYPES[o.type].building && !TYPES[o.type].custom) || this.objects.find(o => !TYPES[o.type].building);
+      if (!old) break;
+      this.remove(old.id);
+    }
+  }
+
   remove(id) { this.objects = this.objects.filter(o => o.id !== id); }
   get(id) { return this.objects.find(o => o.id === id) || null; }
 
