@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pip the Lizard</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="title"><span class="mood" id="mood">🙂</span> <span id="pipName" title="Click to rename">Pip</span> <small>the lizard</small></div>
+    <div class="clock" id="clock">☀️ Day 1</div>
+    <div class="speed" role="group" aria-label="Speed">
+      <button data-speed="0" title="Pause">⏸</button>
+      <button data-speed="1" class="on">1×</button>
+      <button data-speed="3">3×</button>
+      <button data-speed="10">10×</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage">
+      <div class="canvas-wrap">
+        <canvas id="world" aria-label="Pip's terrarium"></canvas>
+      </div>
+      <div class="thought-card">
+        <div class="thought" id="thought">…</div>
+      </div>
+
+      <div class="panel palette-panel">
+        <h2>Add things to Pip's world</h2>
+        <p class="hint">Pick something, then click in the terrarium to place it. Pip doesn't know what anything does — it has to figure it out.</p>
+        <div class="palette" id="palette"></div>
+        <div class="tool-row">
+          <label class="check"><input type="checkbox" id="autoFeeder"> Auto-feeder (drops food now and then)</label>
+          <label class="check"><input type="checkbox" id="showIntent" checked> Show where Pip is heading</label>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <div class="panel">
+        <h2>How Pip feels</h2>
+        <div id="needs" class="needs"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Give Pip a task</h2>
+        <div class="task-builder">
+          <select id="taskVerb" aria-label="Action">
+            <option value="any">visit</option>
+            <option value="eat">eat</option>
+            <option value="drink">drink from</option>
+            <option value="bask">bask on</option>
+            <option value="rest">rest on</option>
+            <option value="play">play with</option>
+          </select>
+          <select id="taskType" aria-label="Thing"></select>
+          <select id="taskCount" aria-label="How many times">
+            <option value="1">×1</option><option value="2">×2</option><option value="3">×3</option><option value="5">×5</option>
+          </select>
+          <button id="giveTask" class="primary">Give task</button>
+        </div>
+        <details class="custom-task">
+          <summary>…or teach your own task in words</summary>
+          <p class="hint">Type anything ("cuddle the rock", "go to bed"). Pip will guess — you press <b>Good Pip</b> when it does the right thing.</p>
+          <div class="task-builder">
+            <input id="customText" type="text" maxlength="60" placeholder="e.g. go to bed on the log">
+            <button id="giveCustom">Give</button>
+          </div>
+        </details>
+        <div id="currentTask" class="current-task"></div>
+        <div class="train">
+          <button id="good" class="good">🍬 Good Pip!</button>
+          <button id="no" class="bad">✋ No!</button>
+        </div>
+        <p class="hint">Good / No apply to the last thing Pip did. Click Pip in the terrarium to pet it.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Pip's thoughts</h2>
+        <ol id="log" class="log"></ol>
+      </div>
+
+      <div class="panel">
+        <h2>What Pip has learned <small id="stats"></small></h2>
+        <div id="brain" class="brain"></div>
+        <h3>Words Pip understands</h3>
+        <div id="words" class="words"></div>
+      </div>
+
+      <div class="panel danger">
+        <label class="slider">Curiosity <input type="range" id="curiosity" min="0.2" max="2" step="0.1"></label>
+        <div class="buttons">
+          <button id="resetBrain">Reset Pip's memory</button>
+          <button id="resetWorld">Reset the world</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script src="js/world.js"></script>
+  <script src="js/brain.js"></script>
+  <script src="js/lizard.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
