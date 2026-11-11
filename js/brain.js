@@ -44,7 +44,7 @@ class Brain {
   }
 
   toJSON() {
-    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, ideas: this.ideas, skills: this.skills, tools: this.tools, spent: this.spent, asked: this.asked };
+    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, skills: this.skills, tools: this.tools, spent: this.spent, asked: this.asked };
   }
 
   key(t, v) { return t + ':' + v; }
@@ -125,11 +125,11 @@ class Brain {
       const wantSticks = this.hasIdea('craft') && count('stick') < 3;
       if (log) push({ verb: 'break', type: 'log', objId: log.id, x: log.x, y: log.y }, (s.hits < 1 ? 0.75 * ready : 0.04) + (wantSticks ? 0.6 : 0));
     }
-    if (this.hasIdea('craft')) {
+    {
       for (const [r, R] of Object.entries(RECIPES)) {
         if (!this.hasIdea('recipe:' + r)) continue;
         if (!Object.entries(R.needs).every(([t, n]) => count(t) >= n)) continue;
-        const want = R.tool ? !this.tools[R.tool] && this.hasIdea('dig') : count(R.makes) === 0;
+        const want = R.tool ? !this.tools[R.tool] && this.hasIdea('dig') : R.food ? count(R.makes) === 0 && needs.fullness < 75 : count(R.makes) === 0;
         if (!want) continue;
         const first = mem.find(m => m.type === Object.keys(R.needs)[0]);
         push({ verb: 'craft', type: R.makes || 'stick', recipe: r, objId: first.id, x: first.x, y: first.y }, 0.85);
@@ -163,6 +163,7 @@ class Brain {
       if (VERBS.some(v => !this.known(t, v))) return { kind: 'wonder', val: 0.35 + 0.7 * (100 - lizard.needs.fun) / 100 };
     }
     if (this.nextIdea()) return { kind: 'wonder', val: 0.3 + 0.5 * (100 - lizard.needs.fun) / 100 };
+    if (this.unreadBooks().length) { const top = this.topInterest(); return { kind: 'interest', val: 0.1 + 0.3 * (100 - lizard.needs.fun) / 100 + 0.2 * (top ? top[1] : 0) }; }
     return null;
   }
 
@@ -179,6 +180,7 @@ class Brain {
       const T = TYPES[task.type];
       return `Found it in a dictionary! "${task.text}" means ${task.verb === 'any' ? 'go to' : VERB_INFO[task.verb].phrase} the ${T.emoji} ${T.name}. 📖`;
     }
+    if (this.reading || true) return this.readLibrary(lizard, world, q);
     if (q && q.kind === 'need') {
       const need = Object.keys(INSTINCT).find(n => INSTINCT[n] === q.verb);
       const options = Object.keys(TYPES).filter(t => !this.known(t, q.verb) && truthOf(t, q.verb)[need] >= 8);
@@ -385,12 +387,14 @@ class Brain {
         const c = candidates[candidates.length - 1];
         c.q = q;
         const eRead = this.known(mem.type, 'read');
-        if (!eRead) candidates.pop(); // Pip doesn't know reading is a thing yet
+        if (!eRead && !(task && task.verb === 'read' && task.type === mem.type)) candidates.pop(); // Pip doesn't know reading is a thing yet
         else {
           // the more often books have helped, the more Pip trusts them
           const trust = Math.min(1, 0.5 + 0.2 * eRead.n);
           if (q) q.val *= trust;
-          const ready = q && q.kind === 'wonder' ? this.curiosityReadiness(now) * this.curiosity : 1;
+          // after a reading session Pip wants a break, unless it urgently needs to look something up
+          const rested = !this.nextReadAt || now >= this.nextReadAt;
+          const ready = q && (q.kind === 'wonder' || q.kind === 'interest') ? (rested ? this.curiosityReadiness(now) * this.curiosity : 0) : 1;
           c.score += -c.parts.curious + (q ? q.val * ready : 0.02);
           c.parts.curious = q ? q.val * ready : 0.02;
         }
@@ -592,3 +596,4 @@ function taskTextFor(verb, type) {
   if (verb === 'any') return `visit the ${noun}`;
   return `${VERB_INFO[verb].phrase} the ${noun}`;
 }
+

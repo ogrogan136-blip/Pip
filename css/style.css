@@ -206,3 +206,14 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .mk-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .mk-list .chip button { border: none; background: none; padding: 0 0 0 4px; color: var(--red); cursor: pointer; }
 [hidden] { display: none !important; }
+
+.interests { display: grid; gap: 4px; font-size: 13px; }
+.interest { display: grid; grid-template-columns: 26px 1fr 90px; gap: 6px; align-items: center; }
+.interest .bar > i { background: var(--accent); }
+.books-read { display: grid; gap: 6px; font-size: 13px; }
+.books-read details { border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.books-read summary { cursor: pointer; display: flex; gap: 6px; align-items: center; }
+.books-read summary .prog { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.books-read ol { margin: 6px 0 2px; padding-left: 20px; }
+.books-read li { margin: 2px 0; }
+#bookTopic { flex: 1 1 160px; min-width: 0; }

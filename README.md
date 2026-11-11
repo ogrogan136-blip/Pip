@@ -9,7 +9,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - **Starts out knowing nothing.** It doesn't know a cricket is food or a cactus hurts. It tries things out of curiosity (eat, drink, bask, rest, play) and remembers how each one made it feel.
 - **Uses what it learned** to decide what to do next, depending on what it needs most right now. When it's hungry it goes for food it knows works; when it's bored it explores and experiments.
 - **Learns to avoid** things that hurt it, and even steers around them.
-- **Reads books.** When something is on its mind (a word it doesn't know, a need it can't solve, a thing it wonders about), it walks into the 📚 book shop and looks it up.
+- **Learns to read.** Once Pip works out what the 📚 book shop is for, it starts by looking at pictures and slowly learns to read. The shop has 11 books (bugs, cooking, lizards, plants, water, sun, building, digging, stars, feelings, rocks). Pip reads a page or two per visit, picks books by its interests, and some pages teach it real things or recipes. With Smart Pip you can add new books on any topic.
 - **Gets ideas over time.** After long hunger it wonders what's under the sand and learns to dig (finding crabs, shells and more). Playing with logs leads to pulling sticks off them, and sticks lead to building a nest, a den and a digging stick. Books and hints from you can plant these ideas too. Every skill starts clumsy and improves with practice.
 - **Thinks out loud.** The 💭 box and the thoughts log show its reasoning.
 
@@ -28,6 +28,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - `js/brain.js`: needs, learning, word learning, decision-making
 - `js/lizard.js`: body, senses, memory of where things are, carrying out plans
 - `js/ai.js`: optional smart thinking through the artifact's Claude capability
+- `js/library.js`: the books, reading level and interests
 - `js/talk.js`: Pip's questions, understanding replies, custom things
 - `js/game.js`: tasks, training, saving
 - `js/render3d.js`: the 3D terrarium (three.js)

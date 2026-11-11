@@ -328,6 +328,47 @@
   game.on('types', onTypesChanged);
   renderCustomList();
 
+  // ---------- Pip's books ----------
+  let booksSig = null;
+  function renderBooks() {
+    const b = game.brain, r = b.readState(), books = b.allBooks();
+    const sig = JSON.stringify([r.literacy, r.read, Object.values(r.interests).map(v => Math.round(v * 50)), Object.keys(books).length, b.known('bookstore', 'read') ? 1 : 0]);
+    if (sig === booksSig) return;
+    booksSig = sig;
+    const knows = !!b.known('bookstore', 'read');
+    $('readLevel').textContent = knows ? '· ' + readingLevelName(r.literacy) : '· hasn\'t found the books yet';
+    const ints = Object.entries(r.interests).filter(([k]) => books[k]).sort((a, c) => c[1] - a[1]).slice(0, 6);
+    const word = v => v > 0.75 ? 'obsessed' : v > 0.5 ? 'loves it' : v > 0.3 ? 'interested' : v > 0.12 ? 'a bit curious' : 'not yet';
+    $('interests').innerHTML = ints.map(([k, v]) => `<div class="interest"><span>${books[k].emoji}</span><div class="bar" title="${escapeHtml(books[k].title)}"><i style="width:${Math.round(v * 100)}%"></i></div><span class="hint" style="margin:0">${word(v)}</span></div>`).join('');
+    const readBooks = Object.keys(books).filter(k => (r.read[k] || []).length).sort((a, c) => (r.read[c] || []).length - (r.read[a] || []).length);
+    $('booksRead').innerHTML = readBooks.length ? readBooks.map(k => {
+      const bk = books[k], idx = (r.read[k] || []).slice().sort((x, y) => x - y);
+      return `<details><summary><span>${bk.emoji}</span><span>${escapeHtml(bk.title)}</span><span class="prog">${idx.length}/${bk.pages.length} pages</span></summary><ol>${idx.map(i => `<li value="${i + 1}">${escapeHtml(bk.pages[i][0])}</li>`).join('')}</ol></details>`;
+    }).join('') : `<div class="empty">${knows ? 'Nothing read yet.' : 'Pip doesn\'t know what the 📚 book shop is for yet.'}</div>`;
+  }
+
+  // Smart Pip can stock the shop with a new book
+  $('newBook').onclick = async () => {
+    if (AI.busy || !AI.ready) return;
+    const b = game.brain, top = b.topInterest();
+    const topic = $('bookTopic').value.trim() || (top ? b.allBooks()[top[0]].title : 'lizards');
+    AI.busy = true; $('newBook').disabled = true; $('newBook').textContent = 'Writing…';
+    try {
+      const out = await AI.writeBook(game, topic);
+      if (out && out.title && Array.isArray(out.pages) && out.pages.length) {
+        const key = 'x' + Date.now().toString(36);
+        b.extraBooks = b.extraBooks || {};
+        b.extraBooks[key] = { title: String(out.title).slice(0, 50), emoji: [...String(out.emoji || '📗')].slice(0, 2).join(''), pages: out.pages.slice(0, 12).map(p => [String(p).slice(0, 160)]) };
+        b.readState().interests[key] = 0.2;
+        $('bookTopic').value = '';
+        game.addLog(`(A new book arrived at the book shop: "${b.extraBooks[key].title}")`, 'task');
+        booksSig = null; save();
+      }
+    } catch (err) { aiProblem(AI.handleError(err)); }
+    finally { AI.busy = false; $('newBook').disabled = false; $('newBook').textContent = '＋ Add a new book'; }
+  };
+  AI.init().then(ok => { if (ok) $('bookAiRow').hidden = false; });
+
   // ---------- settings ----------
   $('autoFeeder').checked = game.world.autoFeeder;
   $('autoFeeder').onchange = e => { game.world.autoFeeder = e.target.checked; };
@@ -354,7 +395,7 @@
     $('autoFeeder').checked = game.world.autoFeeder;
     $('curiosity').value = game.brain.curiosity;
     logLen = -1; taskSig = null;
-    renderTask(); renderBrain(); onTypesChanged(); chatSig = null;
+    renderTask(); renderBrain(); onTypesChanged(); chatSig = null; booksSig = null;
     save();
   }
 
@@ -379,6 +420,7 @@
     if (slowTimer > 0.5) {
       slowTimer = 0;
       renderBrain();
+      renderBooks();
       renderTask();
       const day = Math.floor(game.world.time / game.world.dayLength) + 1;
       $('clock').textContent = `${game.world.isNight ? '🌙 Night' : '☀️ Day'} ${day}`;

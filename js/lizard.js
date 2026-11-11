@@ -249,6 +249,7 @@ class Lizard {
       const firstVisit = brain.learnEffect(p.type, 'read', delta);
       const text = brain.readBook(this, world, task, p.desperateFor || {});
       r = { mood: 'happy', text: firstVisit ? 'It\'s full of books! ' + text : text };
+      if (this.onRead && !firstVisit) this.onRead(text);
       brain.satisfyCuriosity(world.time);
     } else {
       delta = world.interact(this, obj, p.verb);
@@ -356,6 +357,7 @@ class Lizard {
       }
     }
     brain.stats.actions++;
+    brain.spark(p.verb === 'dig' ? 'digging' : RECIPES[p.recipe] && RECIPES[p.recipe].food ? 'cooking' : 'building', 0.03);
     this.think(text, mood === 'happy' ? 'discover' : 'meh');
     this.setMood(mood === 'happy' ? 'happy' : 'meh');
     brain.satisfyCuriosity(world.time);

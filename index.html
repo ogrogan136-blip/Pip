@@ -129,6 +129,18 @@
         <ol id="log" class="log"></ol>
       </div>
 
+      <div class="panel" id="booksPanel">
+        <h2>📚 Pip's books <small id="readLevel"></small></h2>
+        <h3>Interests</h3>
+        <div id="interests" class="interests"></div>
+        <h3>What Pip has read</h3>
+        <div id="booksRead" class="books-read"></div>
+        <div class="ai-row" id="bookAiRow" hidden>
+          <input id="bookTopic" type="text" maxlength="40" placeholder="A topic, or leave blank for Pip's favourite" aria-label="Book topic">
+          <button type="button" id="newBook">＋ Add a new book</button>
+        </div>
+      </div>
+
       <div class="panel">
         <h2>What Pip has learned <small id="stats"></small></h2>
         <div id="brain" class="brain"></div>
@@ -150,6 +162,7 @@
 
   <script src="js/world.js"></script>
   <script src="js/brain.js"></script>
+  <script src="js/library.js"></script>
   <script src="js/lizard.js"></script>
   <script src="js/talk.js"></script>
   <script src="js/ai.js"></script>

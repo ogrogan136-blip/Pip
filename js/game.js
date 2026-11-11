@@ -34,6 +34,8 @@ class Game {
     this.celebrate = 0;
     this.lizard.onThought = (text, kind) => this.addLog(text, kind);
     this.lizard.onAction = (t, v, d) => this.handleAction(t, v, d);
+    // Pip sometimes tells you about what it just read
+    this.lizard.onRead = text => { if (Math.random() < 0.35) { this.chat.push({ from: 'pip', text: 'Guess what I read! ' + text.replace(/^.*?: /, '') }); if (this.chat.length > 40) this.chat.shift(); this.emit('chat'); } };
   }
 
   on(evt, fn) { (this.listeners[evt] || (this.listeners[evt] = [])).push(fn); }
@@ -98,7 +100,8 @@ class Game {
     this.emit('task');
   }
 
-  handleAction(t, v) {
+  handleAction(t, v, d) {
+    this.brain.sparkFrom(t, v, d);
     const task = this.task;
     if (!task) return;
     if (task.matches(t, v)) { this.taskSuccess(t, v); return; }

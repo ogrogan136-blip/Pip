@@ -44,6 +44,7 @@ const AI = {
 Things in the terrarium (type key and name): ${here || 'nothing'}.
 What Pip has learned (thing verb: effect): ${learned || 'nothing yet'}.
 Skills: ${skills}. Untried ideas: ${ideas}.
+Reading: ${readingLevelName(b.readState().literacy)}. Favourite topics: ${Object.entries(b.readState().interests).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([k]) => (b.allBooks()[k] || {}).title).filter(Boolean).join(', ')}. Recently read: ${Object.entries(b.readState().read).flatMap(([k, ix]) => ix.slice(-2).map(i => (b.allBooks()[k] || { pages: [] }).pages[i])).filter(Boolean).slice(-4).map(p => p[0]).join(' ')}
 Current task: ${game.task ? '"' + game.task.text + '"' : 'none'}.
 Recent chat:
 ${chat || '(none)'}`;
@@ -93,6 +94,14 @@ Pip answered: "${said}"
 Pip is talking about a thing it made or will make. Describe exactly that thing (if no particular thing is named, pick something fun that fits) so it can appear in the terrarium.
 Reply with only a JSON object of this shape:
 {"name": "1-3 words", "emoji": "one emoji", "shape": "ball|box|cone|cylinder|blob|star", "color": "#rrggbb", "size": "small|medium|big", "moves": false, "goneWhenEaten": false, "does": {"eat": "nothing|good|great|bad|random", "drink": "...", "bask": "...", "rest": "...", "play": "..."}, "says": {"play": "what Pip sees happen when it uses it, max 12 words"}}`;
+    return await this.sample.json(prompt, { modelTier: 'quick', cache: false });
+  },
+
+  // ---- a new book for the shop ----
+  async writeBook(game, topic) {
+    const prompt = `Write a short book for a small pet lizard's book shop, on this topic: "${topic}".
+The lizard reads it one page at a time. Make it fun and full of real, interesting facts (silly or strange topics are fine; no sexual content or graphic gore).
+Reply with only a JSON object: {"title": "book title", "emoji": "one emoji", "pages": ["page 1: one or two short sentences", "...", 8 to 10 pages]}`;
     return await this.sample.json(prompt, { modelTier: 'quick', cache: false });
   },
 
