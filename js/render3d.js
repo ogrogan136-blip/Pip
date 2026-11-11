@@ -575,6 +575,8 @@ class Renderer3D {
         for (let i = 0; i < 10; i++) this.addParticle(at, '#c9a35a', 1.2 + Math.random(), 30 + Math.random() * 40, 0.7);
       } else if (e.kind === 'sand') {
         for (let i = 0; i < 9; i++) this.addParticle(at.clone().setY(-6), '#d9bb80', 1.4 + Math.random() * 1.4, 40 + Math.random() * 50, 0.7);
+      } else if (e.kind === 'sparkle') {
+        for (let i = 0; i < 16; i++) this.addParticle(at.clone().setY(12), ['#ff6ad5', '#ffd23f', '#6ae0ff', '#a6ff6a'][i % 4], 1.6, 60 + Math.random() * 60, 1.0);
       } else if (e.kind === 'chips') {
         for (let i = 0; i < 14; i++) this.addParticle(at, '#8a5a2b', 1.2 + Math.random() * 1.2, 40 + Math.random() * 60, 0.8);
       } else if (e.kind === 'ouch') {

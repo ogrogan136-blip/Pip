@@ -529,7 +529,8 @@ class Brain {
   // Pip's reaction to what just happened.
   reactionFor(t, v, delta, firstTime) {
     const r = this.reactionCore(t, v, delta, firstTime);
-    if (delta.seen && SEEN_TEXT[delta.seen] && r.mood !== 'hurt') r.text = SEEN_TEXT[delta.seen] + ' ' + r.text;
+    if (delta.seenText) r.text = delta.seenText + ' ' + r.text;
+    else if (delta.seen && SEEN_TEXT[delta.seen] && r.mood !== 'hurt') r.text = SEEN_TEXT[delta.seen] + ' ' + r.text;
     return r;
   }
 

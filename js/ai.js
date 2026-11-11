@@ -52,7 +52,8 @@ ${chat || '(none)'}`;
   rules() {
     return `You are the inner voice of Pip, a small pet lizard in a 3D terrarium game. Pip is curious, gentle and a bit simple: it talks in short, plain sentences (1-2 sentences, under 30 words), like a young child, with at most one emoji. Pip only knows what is listed below; it is not an AI and never says so.
 Verbs Pip can do to things: eat, drink, bask, rest, play. Skills Pip may develop: dig, break (pull sticks off logs), craft. Recipes: nest, digger, den.
-Valid thing types: ${Object.keys(TYPES).filter(t => !TYPES[t].hidden || TYPES[t].custom).join(', ')}.`;
+Valid thing types: ${Object.keys(TYPES).filter(t => !TYPES[t].hidden || TYPES[t].custom).map(t => t + (TYPES[t].custom ? ' (' + TYPES[t].name + ')' : '')).join(', ')}.
+This is a playful game: silly, strange and impossible things are welcome (a tiny disco ball, a sandwich that hums, a cloud on a string). Play along with jokes and odd requests, as long as it stays kind and suitable for a child.`;
   },
 
   // ---- chat ----
@@ -70,27 +71,31 @@ Work out what the human means and how Pip answers. Reply with only a JSON object
    {"do": "give", "thing": "<type key>"}        // the human is giving Pip a thing (it appears next to Pip)
    {"do": "idea", "idea": "dig|break|craft|recipe:nest|recipe:digger|recipe:den"}   // the human suggested a new skill
    {"do": "task", "verb": "eat|drink|bask|rest|play|any", "thing": "<type key>", "count": 1}  // the human asked Pip to do something
+   {"do": "create", "thing": {"name": "1-3 words", "emoji": "one emoji", "shape": "ball|box|cone|cylinder|blob|star", "color": "#rrggbb", "size": "small|medium|big", "where": "dig|here", "moves": true/false, "goneWhenEaten": true/false,
+  "does": {"eat": "nothing|good|great|bad|random", "drink": "...", "bask": "...", "rest": "...", "play": "..."},
+  "says": {"eat": "what Pip sees happen, max 12 words", "play": "...", ...only for verbs that do something}}}   // the human gave or asked for something that does not exist yet: invent it, however silly
    {"do": "praise"} or {"do": "scold"}
  ]}
-Only use thing type keys from the list. If the human mentions something that does not exist, Pip can say it has never seen one.`;
+Only use thing type keys from the list for learn/give/task. If the human wants something that does not exist, use create (it appears next to Pip). \"random\" means a different surprise each time.`;
     const out = await this.sample.json(prompt, { modelTier: 'quick', cache: false });
     return out && typeof out === 'object' ? out : { say: String(out || '') };
   },
 
   // ---- deep thought (button) ----
   async reflect(game) {
-    const invented = game.custom.filter(d => d.byPip).length;
-    const canInvent = invented < 8;
+    const canInvent = game.custom.length < 40;
     const prompt = `${this.rules()}
 
 ${this.describe(game)}
 
 Pip sits quietly and thinks deeply about its life, what it has learned, and what might be out there that it hasn't found yet.
-${canInvent ? `Pip may imagine ONE new kind of thing that could exist in or around the terrarium (for example something that might be buried under the sand, hiding under a rock, or growing somewhere). It must fit a small desert terrarium and must not be one of the existing types. Decide honestly what it really does; it can be good, bad, or useless.` : 'Pip should not invent anything new this time.'}
+${canInvent ? `Pip usually imagines ONE new kind of thing that might exist. It can be ordinary or wonderfully strange (a singing pebble, a pocket-sized moon, a sock that is also a snack). It must not be one of the existing types. Decide what it really does: good, bad, useless, or random surprises.` : 'Pip should not invent anything new this time.'}
 Reply with only a JSON object:
 {"thought": "Pip's thought, 1-2 short sentences",
  "idea": null or one of "dig","break","craft","recipe:nest","recipe:digger","recipe:den" (only if it follows naturally),
- "invention": ${canInvent ? `null or {"name": "1-2 words", "emoji": "one emoji", "shape": "ball|box|cone|cylinder|blob|star", "color": "#rrggbb", "size": "small|medium|big", "where": "dig|here", "moves": true/false, "goneWhenEaten": true/false, "does": {"eat": "nothing|good|great|bad", "drink": "...", "bask": "...", "rest": "...", "play": "..."}}` : 'null'}}
+ "invention": ${canInvent ? `null or ` + `{"name": "1-3 words", "emoji": "one emoji", "shape": "ball|box|cone|cylinder|blob|star", "color": "#rrggbb", "size": "small|medium|big", "where": "dig|here", "moves": true/false, "goneWhenEaten": true/false,
+  "does": {"eat": "nothing|good|great|bad|random", "drink": "...", "bask": "...", "rest": "...", "play": "..."},
+  "says": {"eat": "what Pip sees happen, max 12 words", "play": "...", ...only for verbs that do something}}` : 'null'}}
 "where": "dig" means Pip would have to dig to find it; "here" means it just turns up nearby.`;
     return await this.sample.json(prompt, { modelTier: 'quick', cache: false });
   },
@@ -106,6 +111,10 @@ function applyAiReply(game, r) {
     else if (a.do === 'give' && valid(a.thing) && !TYPES[a.thing].building && game.world.objects.length < 40) { const p = game.lizard, ang = Math.random() * 6.28; game.world.add(a.thing, p.x + Math.cos(ang) * 70, p.y + Math.sin(ang) * 70); }
     else if (a.do === 'idea' && typeof a.idea === 'string' && (['dig', 'break', 'craft'].includes(a.idea) || (a.idea.startsWith('recipe:') && RECIPES[a.idea.slice(7)]))) game.brain.addIdea(a.idea, 'you');
     else if (a.do === 'task' && valid(a.thing) && (verbs.includes(a.verb) || a.verb === 'any')) game.giveTask({ text: taskTextFor(a.verb, a.thing), verb: a.verb, type: a.thing, count: clamp(Math.round(+a.count || 1), 1, 5), auto: true });
+    else if (a.do === 'create' && a.thing && game.world.objects.length < 40) {
+      const key = createInvented(game, a.thing, false);
+      if (key) { const p = game.lizard, ang = Math.random() * 6.28; game.world.add(key, p.x + Math.cos(ang) * 70, p.y + Math.sin(ang) * 70); }
+    }
     else if (a.do === 'praise') { const la = game.lizard.lastAction; if (la) game.brain.addPraise(la.type, la.verb, 1); game.lizard.needs.fun = clamp(game.lizard.needs.fun + 6, 0, 100); }
     else if (a.do === 'scold') { const la = game.lizard.lastAction; if (la) game.brain.addPraise(la.type, la.verb, -1); }
   }
@@ -115,23 +124,35 @@ function applyAiReply(game, r) {
   if (['idling', 'pausing'].includes(game.lizard.state)) game.lizard.state = 'deciding';
 }
 
+// Turn an invented thing into a real kind of object (checked so it always works in the game).
+function createInvented(game, inv, byPip) {
+  if (!inv || typeof inv !== 'object' || !inv.name || game.custom.length >= 40) return null;
+  const levels = ['nothing', 'good', 'great', 'bad', 'random'];
+  const does = {}, says = {};
+  for (const v of VERBS) {
+    does[v] = levels.includes(inv.does && inv.does[v]) ? inv.does[v] : 'nothing';
+    if (inv.says && typeof inv.says[v] === 'string' && inv.says[v].trim()) says[v] = inv.says[v].trim().slice(0, 90);
+  }
+  const name = String(inv.name).toLowerCase().replace(/[^a-z0-9 '-]/g, '').trim().slice(0, 22);
+  if (!name) return null;
+  const existing = Object.entries(TYPES).find(([, T]) => T.name === name);
+  if (existing) return existing[0];
+  return game.addCustom({
+    name, emoji: [...String(inv.emoji || '❔')].slice(0, 2).join(''),
+    shape: ['ball', 'box', 'cone', 'cylinder', 'blob', 'star'].includes(inv.shape) ? inv.shape : 'blob',
+    color: /^#[0-9a-f]{6}$/i.test(inv.color) ? inv.color : '#a07ad8',
+    size: { small: 10, medium: 15, big: 22 }[inv.size] || 13,
+    moves: !!inv.moves, consumable: !!inv.goneWhenEaten, does, says, byPip, buried: byPip && inv.where === 'dig',
+  });
+}
+
 function applyAiReflection(game, r) {
   if (!r || typeof r !== 'object') return;
   let extra = '';
   const inv = r.invention;
-  if (inv && typeof inv === 'object' && inv.name && game.custom.filter(d => d.byPip).length < 8) {
-    const levels = ['nothing', 'good', 'great', 'bad'];
-    const does = {};
-    for (const v of VERBS) does[v] = levels.includes(inv.does && inv.does[v]) ? inv.does[v] : 'nothing';
-    const name = String(inv.name).toLowerCase().replace(/[^a-z ]/g, '').trim().slice(0, 18);
-    if (name && !Object.values(TYPES).some(T => T.name === name)) {
-      const key = game.addCustom({
-        name, emoji: String(inv.emoji || '❔').slice(0, 4),
-        shape: ['ball', 'box', 'cone', 'cylinder', 'blob', 'star'].includes(inv.shape) ? inv.shape : 'blob',
-        color: /^#[0-9a-f]{6}$/i.test(inv.color) ? inv.color : '#a07ad8',
-        size: { small: 10, medium: 15, big: 22 }[inv.size] || 13,
-        moves: !!inv.moves, consumable: !!inv.goneWhenEaten, does, byPip: true, buried: inv.where === 'dig',
-      });
+  if (inv && typeof inv === 'object' && inv.name) {
+    const key = createInvented(game, inv, true);
+    if (key) {
       if (inv.where === 'dig') { game.brain.addIdea('dig', 'thinking'); extra = ' Maybe it\'s buried somewhere…'; }
       else { const L = game.lizard, a = Math.random() * 6.28; game.world.add(key, L.x + Math.cos(a) * 90, L.y + Math.sin(a) * 90); extra = ` Wait… is that a ${TYPES[key].emoji} over there?`; }
     }

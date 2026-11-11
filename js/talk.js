@@ -18,12 +18,13 @@ const BAD_EFFECT = { health: -12, fun: -5 };
 function registerCustomType(def) {
   TYPES[def.key] = {
     emoji: def.emoji || '❔', name: def.name, size: def.size || 14, food: !!def.consumable, crawls: !!def.moves,
-    buried: !!def.buried, hidden: !!def.buried, byPip: !!def.byPip,
+    buried: !!def.buried, hidden: !!def.buried, byPip: !!def.byPip, says: def.says || {}, wild: {},
     custom: true, shape: def.shape || 'ball', color: def.color || '#8e6ad8', words: wordsOf(def.name),
   };
   const fx = {};
   for (const v of VERBS) {
     const level = def.does && def.does[v];
+    if (level === 'random') TYPES[def.key].wild[v] = true;
     if (level === 'bad') fx[v] = Object.assign({}, BAD_EFFECT);
     else if (level === 'good' || level === 'great') fx[v] = Object.assign({}, PRESETS[v][level]);
   }

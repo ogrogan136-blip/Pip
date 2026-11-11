@@ -259,6 +259,12 @@ class World {
     const delta = {};
     for (const n of NEEDS) delta[n] = base[n] || 0;
     delta.energy -= 1; // every action takes a little effort
+    // made-up things can be unpredictable: a different surprise every time
+    const CT = TYPES[type];
+    if (CT && CT.wild && CT.wild[verb]) {
+      const n = NEEDS[Math.floor(Math.random() * NEEDS.length)];
+      delta[n] += Math.random() < 0.75 ? 8 + Math.round(Math.random() * 20) : -(4 + Math.round(Math.random() * 8));
+    }
     if (verb === 'bask') delta.warmth += Math.round(this.heatAt(lizard.x, lizard.y) * 18);
     if (verb === 'rest' && this.isNight && delta.energy > 0) delta.energy = Math.round(delta.energy * 1.4);
 
@@ -282,6 +288,8 @@ class World {
       if (verb === 'play' && TYPES[type].hops) { obj.vx = rand(-150, 150); obj.vy = rand(-150, 150); obj.hop = 0.3; }
     }
     delta.seen = seen;
+    if (CT && CT.says && CT.says[verb]) delta.seenText = String(CT.says[verb]);
+    if (CT && CT.custom && delta.seenText) this.addFx('sparkle', lizard.x, lizard.y);
     return delta;
   }
 }

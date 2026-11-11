@@ -282,7 +282,7 @@
   AI.init().then(ok => { if (ok) $('aiRow').hidden = false; });
 
   // ---------- make your own thing ----------
-  const LEVELS = [['nothing', 'nothing happens'], ['good', 'good'], ['great', 'great'], ['bad', 'it hurts']];
+  const LEVELS = [['nothing', 'nothing happens'], ['good', 'good'], ['great', 'great'], ['bad', 'it hurts'], ['random', 'a random surprise']];
   $('mkDoes').innerHTML = VERBS.map(v => `<label>If Pip tries to ${v === 'play' ? 'play with' : v === 'bask' ? 'bask on' : v === 'rest' ? 'rest on' : v === 'drink' ? 'drink' : 'eat'} it
     <select id="mk_${v}">${LEVELS.map(([k, l]) => `<option value="${k}">${l}</option>`).join('')}</select></label>`).join('');
   function renderCustomList() {
@@ -294,7 +294,7 @@
     $('mkShape').value = r(['ball', 'box', 'cone', 'cylinder', 'blob', 'star']);
     $('mkColor').value = '#' + [0, 0, 0].map(() => (60 + Math.floor(Math.random() * 180)).toString(16)).join('');
     $('mkSize').value = r(['10', '15', '22']);
-    for (const v of VERBS) $('mk_' + v).value = r(['nothing', 'nothing', 'nothing', 'good', 'great', 'bad']);
+    for (const v of VERBS) $('mk_' + v).value = r(['nothing', 'nothing', 'good', 'great', 'bad', 'random']);
     $('mkMoves').checked = Math.random() < 0.25;
     if (!$('mkName').value) $('mkName').value = r(['wibble', 'zonk', 'mystery', 'blorp', 'gizmo', 'thingy']);
     if (!$('mkEmoji').value) $('mkEmoji').value = r(['❔', '🎁', '🔮', '🧩', '🪀']);
