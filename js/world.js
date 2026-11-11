@@ -60,6 +60,9 @@ const TYPES = {
   plant:    { emoji: '🪴', name: 'food plant', size: 20, hidden: true },
   cricketbox: { emoji: '📦', name: 'cricket box', size: 20, hidden: true },
   bucket:   { emoji: '🪣', name: 'bucket', size: 12, hidden: true },
+  store:    { emoji: '🏚️', name: 'food store', size: 26, building: true, hidden: true, words: ['store', 'shed', 'pantry', 'storage'] },
+  stove:    { emoji: '🔥', name: 'stone stove', size: 22, heat: 210, heatPower: 80, hidden: true, words: ['stove', 'fire', 'heater'] },
+  sweater:  { emoji: '🧥', name: 'woolly sweater', size: 12, hidden: true, words: ['sweater', 'jumper', 'clothes', 'coat'] },
   hut:      { emoji: '🛖', name: 'log cabin', size: 40, building: true, hidden: true, words: ['cabin', 'hut', 'house', 'home'] },
   bed:      { emoji: '🛏️', name: 'comfy bed', size: 20, hidden: true, words: ['bed'] },
   cotton:   { emoji: '☁️', name: 'cotton boll', size: 10, hidden: true },
@@ -89,6 +92,9 @@ const EFFECTS = {
   bookstore: { play: { fun: 8 }, rest: { energy: 10 }, eat: { fun: -4 } },
   stick:    { play: { fun: 9 }, eat: { fun: -3 } },
   bucket:   { play: { fun: 3 } },
+  store:    { play: { fun: 2 } },
+  stove:    { bask: { warmth: 30 }, rest: { energy: 8, warmth: 12 } },
+  sweater:  { play: { fun: 4 } },
   hut:      { rest: { energy: 48, warmth: 6, fun: 3 }, play: { fun: 4 } },
   bed:      { rest: { energy: 75, fun: 8 }, play: { fun: 5 } },
   cotton:   { play: { fun: 6 }, eat: { fun: -3 } },
@@ -197,23 +203,25 @@ class World {
   }
   get isNight() { return this.daylight < 0.3; }
 
+  // how much heat reaches a spot (a stove is much stronger than the lamp)
   heatAt(x, y) {
     let h = 0;
     for (const o of this.objects) {
-      const r = TYPES[o.type].heat;
+      const T = TYPES[o.type], r = T.heat;
       if (!r) continue;
       const d = dist(x, y, o.x, o.y);
-      if (d < r) h = Math.max(h, 1 - d / r);
+      if (d < r) h = Math.max(h, (1 - d / r) * (T.heatPower || 48) / 48);
     }
     return h;
   }
 
   ambientAt(x, y) {
-    return 25 + this.daylight * 20 + this.heatAt(x, y) * 48;
+    return 25 + this.daylight * 20 + this.temperature() + this.heatAt(x, y) * 48;
   }
 
   update(dt, lizard) {
     this.time += dt;
+    this.updateWeather(dt);
     for (const o of this.objects) {
       const T = TYPES[o.type];
       o.t += dt;
@@ -222,7 +230,9 @@ class World {
       if (o.type === 'seedling') {
         // Seeds only grow in grass, and only while they've been watered recently.
         if (o.onGrass === undefined) o.onGrass = this.onGrass(o.x, o.y);
-        if (o.water > 0) { o.water -= dt; o.thirst = 0; if (o.onGrass) o.age = (o.age || 0) + dt; }
+        // crops only grow in their season; heatwaves dry them out twice as fast
+        if (o.water > 0) { o.water -= dt * (this.weather === 'heatwave' ? 2 : 1); o.thirst = 0; if (o.onGrass) o.age = (o.age || 0) + dt * this.cropGrowth(o.grows); }
+        else if (this.season === 'winter') o.thirst = Math.max(0, (o.thirst || 0) - dt * 0.5); // dormant in winter, doesn't dry out
         else o.thirst = (o.thirst || 0) + dt;
         if (!o.onGrass) o.sandTime = (o.sandTime || 0) + dt;
         if (!o.onGrass && o.sandTime > 150) { this.wither(o, 'sand'); continue; }
@@ -233,7 +243,7 @@ class World {
       if (o.type === 'plant' || o.type === 'cricketbox') {
         // a grown plant keeps making food; a cricket box keeps making crickets
         const makes = o.type === 'plant' ? (TYPES[o.produce] ? o.produce : 'berry') : 'cricket';
-        o.timer = (o.timer || 0) + dt;
+        o.timer = (o.timer || 0) + dt * (o.type === 'plant' ? this.cropGrowth(o.produce) : this.season === 'winter' ? 0.2 : 1);
         if (o.timer >= (o.type === 'plant' ? 200 : 260)) {
           o.timer = 0;
           const near = this.objects.filter(x => x.type === makes && dist(x.x, x.y, o.x, o.y) < 90).length;
@@ -264,7 +274,7 @@ class World {
     // Auto-feeder: keeps a little food around so Pip doesn't starve while you're away
     if (this.autoFeeder) {
       this.feederTimer += dt;
-      if (this.feederTimer > 150) {
+      if (this.feederTimer > (this.season === 'winter' ? 500 : 150)) { // food is rare in winter
         this.feederTimer = 0;
         // logs slowly get new loose bark, and a fallen log turns up now and then if there are none
         for (const lg of this.objects) if (lg.type === 'log' && lg.breaks > 0 && this.time - (lg.lastBreak || 0) > 600) { lg.breaks--; lg.lastBreak = this.time; }
@@ -273,7 +283,7 @@ class World {
         if (!this.objects.some(o => o.type === 'water')) this.add('water', 780, 480);
         const foods = this.objects.filter(o => ['cricket', 'mealworm', 'lettuce', 'berry'].includes(o.type)).length;
         // food only turns up now and then; growing more is up to Pip
-        if (foods < 2) {
+        if (foods < 2 && !(this.season === 'winter' && Math.random() < 0.7)) {
           const pick = ['cricket', 'mealworm', 'lettuce', 'lettuce', 'berry', 'berry'][Math.floor(Math.random() * 6)];
           this.add(pick, rand(60, WORLD_W - 60), rand(60, WORLD_H - 60));
         }
@@ -319,6 +329,8 @@ class World {
     if (R.makes === 'hut') { x = 790; y = 270; }
     const hut = this.objects.find(o => o.type === 'hut');
     if (R.makes === 'bed' && hut) { x = hut.x - 78; y = hut.y + 14; }
+    if (R.makes === 'store') { x = hut ? hut.x - 150 : 640; y = hut ? hut.y - 20 : 250; }
+    if (R.makes === 'stove') { x = hut ? hut.x + 10 : x; y = hut ? hut.y + 75 : y; }
     this.addFx('chips', x, y);
     if (R.makes) { const o = this.add(R.makes, x, y); if (o) this.addFx('sparkle', o.x, o.y); }
     return true;
@@ -332,7 +344,15 @@ class World {
 
   interact(lizard, obj, verb) {
     const type = obj ? obj.type : 'ground';
-    const base = (EFFECTS[type] && EFFECTS[type][verb]) || {};
+    let base = (EFFECTS[type] && EFFECTS[type][verb]) || {};
+    // eating at the food store: take the best food out of it
+    let fromStore = null;
+    if (type === 'store' && verb === 'eat' && obj && obj.contents && obj.contents.length) {
+      const best = obj.contents.slice().sort((a, b) => ((EFFECTS[b] || {}).eat || {}).fullness - ((EFFECTS[a] || {}).eat || {}).fullness)[0];
+      obj.contents.splice(obj.contents.indexOf(best), 1);
+      base = (EFFECTS[best] && EFFECTS[best].eat) || {};
+      fromStore = best;
+    }
     const delta = {};
     for (const n of NEEDS) delta[n] = base[n] || 0;
     delta.energy -= 1; // every action takes a little effort
@@ -365,6 +385,7 @@ class World {
       if (verb === 'play' && TYPES[type].hops) { obj.vx = rand(-150, 150); obj.vy = rand(-150, 150); obj.hop = 0.3; }
     }
     delta.seen = seen;
+    if (fromStore) delta.seenText = `I took a ${TYPES[fromStore].emoji} out of my food store.`;
     if (CT && CT.says && CT.says[verb]) delta.seenText = String(CT.says[verb]);
     if (CT && CT.custom && delta.seenText) this.addFx('sparkle', lizard.x, lizard.y);
     return delta;
@@ -373,6 +394,9 @@ class World {
 
 // Things that can be built, once Pip works out how.
 const RECIPES = {
+  store:   { needs: { stick: 4 }, makes: 'store', label: 'a food store' },
+  stove:   { needs: { rock: 1, stick: 2 }, makes: 'stove', label: 'a stone stove' },
+  sweater: { needs: { wool: 1 }, makes: 'sweater', label: 'a woolly sweater' },
   bucket: { needs: { stick: 2 }, makes: 'bucket', label: 'a bucket' },
   hut:    { needs: { log: 1, stick: 3 }, makes: 'hut', label: 'a little log cabin' },
   wool:   { needs: { cotton: 2 }, makes: 'wool', label: 'a ball of wool' },

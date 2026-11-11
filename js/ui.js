@@ -215,7 +215,7 @@
     }
     // skills and ideas
     const b = game.brain, sk = [];
-    const label = n => n.startsWith('recipe:') ? 'make ' + RECIPES[n.slice(7)].label : { dig: '⛏️ dig in the sand', break: '💪 pull logs apart', craft: '🔨 build things', plant: '🌱 plant seeds', tend: '💧 water seedlings', grass: '🌿 seeds grow in grass', carry: '🪣 carry water in a bucket' }[n];
+    const label = n => n.startsWith('recipe:') ? 'make ' + RECIPES[n.slice(7)].label : { dig: '⛏️ dig in the sand', break: '💪 pull logs apart', craft: '🔨 build things', plant: '🌱 plant seeds', tend: '💧 water seedlings', grass: '🌿 seeds grow in grass', carry: '🪣 carry water in a bucket', stockpile: '🏚️ save food for winter', summerhot: '🥵 no sweaters in summer' }[n];
     for (const n of Object.keys(b.skills)) { const s2 = b.skills[n]; if (label(n)) sk.push(`<span class="chip ${s2.hits ? 'good' : ''}" title="tried ${s2.n}×, worked ${s2.hits}×">${escapeHtml(label(n))}${s2.hits ? '' : ' · still practising'}</span>`); }
     for (const n of Object.keys(b.ideas)) if (!b.skills[n] && label(n)) sk.push(`<span class="chip" title="idea from ${escapeHtml(b.ideas[n])}">💡 ${escapeHtml(label(n))}?</span>`);
     if (b.tools.digger) sk.push('<span class="chip good">has a digging stick</span>');
@@ -440,7 +440,9 @@
       renderBooks();
       renderTask();
       const day = Math.floor(game.world.time / game.world.dayLength) + 1;
-      $('clock').textContent = `${game.world.isNight ? '🌙 Night' : '☀️ Day'} ${day}`;
+      const W = game.world, SI = SEASON_INFO[W.season], WI = WEATHER_INFO[W.weather || 'sunny'];
+      $('clock').textContent = `${SI.icon} ${SI.label} · ${W.isNight ? '🌙' : ''}Day ${((day - 1) % DAYS_PER_SEASON) + 1} · ${WI.icon} ${WI.label}`;
+      $('clock').title = `Year ${W.year}`;
     }
     if (saveTimer > 5) { saveTimer = 0; save(); }
     } catch (err) { recover(err); }

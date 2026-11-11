@@ -14,6 +14,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - **Grows its own food.** Food only turns up now and then. After reading "Grow Your Own Food", Pip keeps seeds from what it eats, plants them in a patch by the water, waters the seedlings, and grown plants keep producing food. It can build a cricket box where crickets breed, and it can plant foods it imagined itself.
 - **Carries water and builds a home.** The water comes from a stone well. To water crops Pip has to learn to make a bucket, fill it at the well and carry it over. A log is a poor bed: Pip can build a log cabin, and after reading "Cosy Homes" it grows cotton, spins it into wool and makes a comfy bed, the best sleep of all.
 - **Thinks things up itself.** Books are just a guide: with the right materials and a reason (hungry next to lettuce and a cricket, sleeping badly on a log), Pip works out recipes on its own. When bored it tinkers, combining two things to see what happens, and some combinations become brand-new inventions it can make again. It also asks you for ideas or for help when it's stuck.
+- **Lives through the seasons.** Spring, summer, autumn and winter bring sun, rain, thunderstorms, heatwaves and snow. Crops grow in their own seasons, rain waters them, and nothing grows in winter. Pip learns (from a hungry winter, the Seasons book, or you) to build a food store and fill it in autumn, to build a stone stove that's warmer than the lamp, and to wear a woolly sweater in the cold, but not in summer.
 - **Thinks out loud.** The 💭 box and the thoughts log show its reasoning.
 
 ## What you can do
@@ -31,6 +32,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - `js/brain.js`: needs, learning, word learning, decision-making
 - `js/lizard.js`: body, senses, memory of where things are, carrying out plans
 - `js/ai.js`: optional smart thinking through the artifact's Claude capability
+- `js/weather.js`: seasons and weather
 - `js/library.js`: the books, reading level and interests
 - `js/talk.js`: Pip's questions, understanding replies, custom things
 - `js/game.js`: tasks, training, saving

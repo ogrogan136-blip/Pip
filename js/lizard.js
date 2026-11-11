@@ -20,6 +20,7 @@ class Lizard {
       this.name = data.name || 'Pip';
       this.x = data.x; this.y = data.y; this.heading = data.heading || 0;
       Object.assign(this.needs, data.needs || {});
+      this.wearing = data.wearing || null;
       for (const m of data.memory || []) if (TYPES[m.type]) this.memory.set(m.id, m);
     }
     this.segs = [];
@@ -45,7 +46,7 @@ class Lizard {
   }
 
   toJSON() {
-    return { name: this.name, x: this.x, y: this.y, heading: this.heading, needs: this.needs, memory: [...this.memory.values()] };
+    return { name: this.name, x: this.x, y: this.y, heading: this.heading, needs: this.needs, wearing: this.wearing || null, memory: [...this.memory.values()] };
   }
 
   think(text, kind = 'thought') {
@@ -226,7 +227,7 @@ class Lizard {
     this.state = 'acting';
     this.speed = 0;
     this.actObj = obj;
-    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4, tinker: 10 }[plan.verb] || 4;
+    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4, tinker: 10, stash: 3, wear: 4, unwear: 3 }[plan.verb] || 4;
     this.longSleep = plan.verb === 'rest' && this.needs.energy < 40;
     if (this.longSleep) this.timer = 26; // a proper sleep
     this.inside = !!(obj && TYPES[obj.type].building && ['read', 'play', 'rest'].includes(plan.verb));
@@ -284,6 +285,7 @@ class Lizard {
     return !!T && !T.building && (T.custom || ['stick', 'shell', 'bone', 'flower', 'berry'].includes(o.type));
   }
   pickUp(o) {
+    if (this.carrying && this.carrying !== o.id) this.drop(this.worldRef);
     this.carrying = o.id;
     o.held = true; o.carried = true; o.vx = o.vy = 0;
   }
@@ -369,8 +371,25 @@ class Lizard {
       text = res ? res.text : 'Hmm.';
       mood = res && res.ok ? 'happy' : 'meh';
     } else if (p.verb === 'grab') {
-      if (obj) { this.pickUp(obj); this.keepCarry = true; text = 'Got my bucket. 🪣'; mood = 'happy'; }
-      else text = 'Where did my bucket go?';
+      if (obj) { this.pickUp(obj); this.keepCarry = true; text = obj.type === 'bucket' ? 'Got my bucket. 🪣' : `Got a ${TYPES[obj.type].emoji}. Off to the food store!`; mood = 'happy'; }
+      else text = 'Where did it go?';
+    } else if (p.verb === 'stash') {
+      const held = this.carrying && world.get(this.carrying);
+      if (obj && held) {
+        (obj.contents || (obj.contents = [])).push(held.type);
+        world.remove(held.id); this.carrying = null; this.keepCarry = false;
+        text = `Stored a ${TYPES[held.type].emoji} for winter. That's ${obj.contents.length} in my food store! 🏚️`; mood = 'happy';
+      } else text = 'Hmm, I dropped it somewhere.';
+    } else if (p.verb === 'wear') {
+      if (obj) { world.remove(obj.id); this.wearing = 'sweater'; text = 'Ahh, snug and warm in my sweater! 🧥'; mood = 'happy'; }
+      else text = 'Where did my sweater go?';
+    } else if (p.verb === 'unwear') {
+      this.wearing = null;
+      world.add('sweater', this.x + Math.cos(this.heading) * 20, this.y + Math.sin(this.heading) * 20);
+      const hot = world.season === 'summer' || world.weather === 'heatwave';
+      if (hot && brain.addIdea('summerhot', 'experience')) text = 'PHEW! Way too hot for a sweater in summer! I won\'t do that again. 🥵';
+      else text = 'Too warm for my sweater now. Off it comes!';
+      mood = 'ok';
     } else if (p.verb === 'fill') {
       const b = this.carrying && world.get(this.carrying);
       if (b && b.type === 'bucket') { b.full = 3; world.addFx('ripple', obj ? obj.x : this.x, obj ? obj.y : this.y); text = 'Filled my bucket at the well. 🪣💧'; mood = 'happy'; }
@@ -482,8 +501,9 @@ class Lizard {
     n.energy -= (0.05 + (this.speed > 5 ? 0.06 : 0) + (world.isNight ? 0.06 : 0)) * dt * (resting ? 0 : 1);
     n.fun -= 0.09 * dt;
     // cold-blooded: body temperature drifts toward the surroundings
-    const amb = world.ambientAt(this.x, this.y);
+    const amb = world.ambientAt(this.x, this.y) + (this.wearing ? 18 : 0); // a sweater keeps Pip ~18° warmer
     n.warmth += (amb - n.warmth) * 0.03 * dt;
+    if (n.warmth < 12) n.health -= 0.12 * dt; // dangerously cold
     if (n.fullness > 25 && n.hydration > 25 && n.warmth > 30) n.health += 0.25 * dt;
     if (n.fullness <= 1 || n.hydration <= 1) n.health -= 0.6 * dt;
     if (n.warmth > 97) n.health -= 0.3 * dt;

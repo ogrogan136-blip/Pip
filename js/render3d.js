@@ -121,6 +121,42 @@ function buildModel(type, o) {
       g.userData.pail = pail;
       break;
     }
+    case 'store': {
+      // a little stick shed with an open front and baskets inside
+      const wood = mat('#8a5a2b', { roughness: 0.9 });
+      for (let i = 0; i < 7; i++) for (const z of [-15]) add(mesh(cyl(1.6, 1.6, 30, 6), wood, -21 + i * 7, 15, z));
+      for (const x of [-24, 24]) for (let i = 0; i < 4; i++) add(mesh(cyl(1.6, 1.6, 30, 6), wood, x, 15, -12 + i * 8));
+      const roofM = mat('#6b4627', { roughness: 0.9, flatShading: true });
+      const roof = add(mesh(new THREE.BoxGeometry(58, 3, 42), roofM, 0, 32, 0)); roof.rotation.x = -0.18;
+      for (let i = 0; i < 8; i++) { const st = add(mesh(cyl(0.8, 0.8, 44, 5), mat('#7a4f25'), -26 + i * 7.4, 33.5, 0)); st.rotation.x = Math.PI / 2 - 0.18; }
+      const basket = mat('#c9a06a', { roughness: 1 });
+      for (const x of [-12, 4]) { add(mesh(cyl(6.5, 5.5, 7, 12), basket, x, 3.5, -4)); }
+      g.userData.storeFood = new THREE.Group(); g.add(g.userData.storeFood);
+      break;
+    }
+    case 'stove': {
+      // a stone stove with a chimney and a fire inside
+      for (let ring = 0; ring < 3; ring++) for (let i = 0; i < 10; i++) {
+        const a = (i + ring * 0.5) / 10 * Math.PI * 2; if (Math.cos(a) > 0.8 && ring < 2) continue; // the opening
+        const st = add(mesh(new THREE.BoxGeometry(8, 6, 6), mat(['#8d877d', '#a39d92', '#7a746b'][(i + ring) % 3], { roughness: 1 }), Math.cos(a) * 13, 3 + ring * 6, Math.sin(a) * 13)); st.rotation.y = -a;
+      }
+      add(mesh(cyl(12, 14, 4, 12), mat('#6d675f', { roughness: 1 }), 0, 20, 0));
+      add(mesh(new THREE.BoxGeometry(8, 22, 8), mat('#8d877d', { flatShading: true }), -4, 32, -4));
+      const fire = new THREE.MeshStandardMaterial({ color: '#ff8a2a', emissive: '#ff6a00', emissiveIntensity: 2.2 });
+      for (let i = 0; i < 4; i++) { const f = add(mesh(new THREE.ConeGeometry(2.6 - i * 0.4, 7 + i, 6), fire, 3 + Math.cos(i * 1.7) * 2, 4 + i * 0.5, Math.sin(i * 1.7) * 2)); f.castShadow = false; }
+      for (let i = 0; i < 3; i++) { const l = add(mesh(cyl(1, 1, 9, 5), mat('#5a3d22'), 3, 1.2, -3 + i * 3)); l.rotation.z = Math.PI / 2; }
+      const light = new THREE.PointLight('#ff8a3a', 1.6, 380, 1.5); light.position.set(6, 10, 0); g.add(light); g.userData.light = light;
+      g.userData.fire = fire;
+      break;
+    }
+    case 'sweater': {
+      const knit = mat('#b5443b', { roughness: 1 });
+      add(mesh(new THREE.BoxGeometry(18, 3.5, 14), knit, 0, 1.8, 0));
+      for (const x of [-11, 11]) add(mesh(new THREE.BoxGeometry(5, 3, 9), knit, x, 1.5, -2));
+      for (let i = 0; i < 5; i++) add(mesh(new THREE.BoxGeometry(18.2, 0.5, 0.8), mat('#8e2f28'), 0, 3.6, -5 + i * 2.5));
+      add(mesh(new THREE.TorusGeometry(3, 0.8, 6, 14), mat('#8e2f28'), 0, 3.6, 6)).rotation.x = Math.PI / 2;
+      break;
+    }
     case 'bucket': {
       add(mesh(cyl(7, 5.6, 11, 14, 1), mat('#9c6b35', { roughness: 0.85 }), 0, 5.5, 0));
       for (const yy of [2.5, 8.5]) add(mesh(new THREE.TorusGeometry(yy > 5 ? 6.8 : 6, 0.45, 6, 18), mat('#6d6d6d', { metalness: 0.6, roughness: 0.4 }), 0, yy, 0)).rotation.x = Math.PI / 2;
@@ -464,6 +500,20 @@ class Renderer3D {
     this.scene.add(this.sun);
 
     this.buildTerrarium();
+    this.sweaterMat = new THREE.MeshStandardMaterial({ color: '#b5443b', roughness: 1 });
+    // weather: rain streaks, snowflakes, and a layer of snow on the ground
+    const RN = 900, rp = new Float32Array(RN * 6);
+    for (let i = 0; i < RN; i++) { const x = (Math.random() - 0.5) * WORLD_W, y = Math.random() * 320, z = (Math.random() - 0.5) * WORLD_H; rp.set([x, y, z, x - 1.5, y - 12, z], i * 6); }
+    const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.BufferAttribute(rp, 3));
+    this.rain = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: '#a9cdf5', transparent: true, opacity: 0.55 }));
+    this.rain.visible = false; this.scene.add(this.rain);
+    const SN = 1100, spn = new Float32Array(SN * 3);
+    for (let i = 0; i < SN; i++) spn.set([(Math.random() - 0.5) * WORLD_W, Math.random() * 320, (Math.random() - 0.5) * WORLD_H], i * 3);
+    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(spn, 3));
+    this.snow = new THREE.Points(sg, new THREE.PointsMaterial({ color: '#ffffff', size: 3.2, transparent: true, opacity: 0.9, depthWrite: false }));
+    this.snow.visible = false; this.scene.add(this.snow);
+    this.snowLayer = new THREE.Mesh(new THREE.PlaneGeometry(WORLD_W, WORLD_H), new THREE.MeshStandardMaterial({ color: '#f4f8fb', roughness: 0.9, transparent: true, opacity: 0, depthWrite: false }));
+    this.snowLayer.rotation.x = -Math.PI / 2; this.snowLayer.position.y = 2.6; this.snowLayer.receiveShadow = true; this.scene.add(this.snowLayer);
     this.objMeshes = new Map();
     this.buildLizard();
     this.particles = [];
@@ -661,6 +711,12 @@ class Renderer3D {
       }
       if (m.userData.water) m.userData.water.position.y = 16 + Math.sin(o.t * 2) * 0.2;
       if (m.userData.fill) m.userData.fill.visible = (o.full || 0) > 0;
+      if (m.userData.fire) m.userData.fire.emissiveIntensity = 1.8 + Math.sin(o.t * 11) * 0.4 + Math.sin(o.t * 23) * 0.2;
+      if (m.userData.storeFood && m.userData.storeFood.userData.n !== (o.contents || []).length) {
+        // little piles of food in the baskets, one per stored item
+        const sf = m.userData.storeFood; sf.clear(); sf.userData.n = (o.contents || []).length;
+        (o.contents || []).slice(0, 12).forEach((f, i) => { const T = TYPES[f]; const c = T && T.custom ? T.color : { berry: '#d32f2f', lettuce: '#7fbf45', cricket: '#6b4a24', mealworm: '#d9a441', salad: '#9ccc65', wrap: '#7fbf45', skewer: '#8c6a3a', crab: '#d9482b', flower: '#ffd23f' }[f] || '#c97f3a'; sf.add(mesh(sphere(2.2, 8), mat(c), (i % 2 ? 4 : -12) + ((i * 7) % 5) - 2, 7 + Math.floor(i / 2) * 1.6, -4 + ((i * 3) % 5) - 2)); });
+      }
       if (m.userData.winMat) m.userData.winMat.emissiveIntensity = 0.25 + (1 - world.daylight) * 1.6 + (this.reading === o.id ? 0.8 : 0);
       if (m.userData.light) m.userData.light.intensity = 1.2 + (1 - world.daylight) * 1.2 + Math.sin(o.t * 13) * 0.03;
     }
@@ -687,12 +743,14 @@ class Renderer3D {
       const r = w(i);
       const m = this.segMeshes[mi++];
       const isBody = i >= 2 && i <= 6;
+      m.material = L.wearing && i >= 1 && i <= 6 ? this.sweaterMat : this.skin;
       m.scale.set(r * 1.25, r * 0.62 * flat * (isBody ? breathe : 1), r);
       m.position.copy(toV(px, py, r * 0.62 * flat));
       m.rotation.y = -a;
       if (i >= 2 && i <= 11 && i % 2 === 0) {
         for (const side of [-1, 1]) {
           const sp = this.segMeshes[mi++];
+          sp.visible = !(L.wearing && i <= 6);
           sp.scale.setScalar(r * 0.28);
           sp.scale.y = r * 0.12;
           sp.position.copy(toV(px + Math.cos(a + side * 1.4) * r * 0.45, py + Math.sin(a + side * 1.4) * r * 0.45, r * 1.12 * flat));
@@ -738,6 +796,25 @@ class Renderer3D {
       leg.foot.position.copy(foot);
       leg.foot.rotation.y = -ang;
     });
+  }
+
+  updateWeather(world, dt) {
+    const wx = world.weather;
+    this.rain.visible = wx === 'rain' || wx === 'thunder';
+    if (this.rain.visible) {
+      const p = this.rain.geometry.attributes.position, a = p.array, fall = 520 * dt;
+      for (let i = 0; i < a.length; i += 6) { a[i + 1] -= fall; a[i + 4] -= fall; if (a[i + 4] < 0) { a[i + 1] += 320; a[i + 4] += 320; } }
+      p.needsUpdate = true;
+      this.rain.material.opacity = wx === 'thunder' ? 0.7 : 0.5;
+    }
+    this.snow.visible = wx === 'snow';
+    if (this.snow.visible) {
+      const p = this.snow.geometry.attributes.position, a = p.array, t = performance.now() / 1000;
+      for (let i = 0; i < a.length; i += 3) { a[i + 1] -= 34 * dt; a[i] += Math.sin(t + i) * 8 * dt; if (a[i + 1] < 0) a[i + 1] += 320; }
+      p.needsUpdate = true;
+    }
+    this.snowLayer.material.opacity = Math.min(0.85, (world.snowCover || 0) * 0.85);
+    this.snowLayer.visible = this.snowLayer.material.opacity > 0.01;
   }
 
   spawnFx(world) {
@@ -855,10 +932,13 @@ class Renderer3D {
     const { world, lizard } = game;
     // day / night lighting
     const d = world.daylight;
-    this.sun.intensity = 0.1 + 0.6 * d;
-    this.sun.color.setHSL(0.1, 0.5, 0.55 + 0.35 * d);
-    this.hemi.intensity = 0.2 + 0.35 * d;
-    this.hemi.color.setHSL(0.6 - d * 0.5, 0.4, 0.5 + 0.35 * d);
+    const wx = world.weather || 'sunny';
+    const gloom = { sunny: 1, heatwave: 1.15, cloudy: 0.7, rain: 0.55, thunder: 0.45, snow: 0.7 }[wx] || 1;
+    this.sun.intensity = (0.1 + 0.6 * d) * gloom;
+    this.sun.color.setHSL(wx === 'heatwave' ? 0.08 : 0.1, wx === 'heatwave' ? 0.8 : 0.5, 0.55 + 0.35 * d);
+    this.hemi.intensity = (0.2 + 0.35 * d) * (0.6 + 0.4 * gloom) + (world.flash > 0 ? 2.5 * world.flash : 0);
+    this.hemi.color.setHSL(world.season === 'winter' ? 0.58 : 0.6 - d * 0.5, 0.4, 0.5 + 0.35 * d);
+    this.updateWeather(world, dt);
 
     const inside = lizard.state === 'acting' && lizard.plan && lizard.inside;
     this.reading = inside ? lizard.plan.objId : null;

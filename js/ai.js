@@ -45,6 +45,7 @@ Things in the terrarium (type key and name): ${here || 'nothing'}.
 What Pip has learned (thing verb: effect): ${learned || 'nothing yet'}.
 Skills: ${skills}. Untried ideas: ${ideas}.
 Reading: ${readingLevelName(b.readState().literacy)}. Favourite topics: ${Object.entries(b.readState().interests).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([k]) => (b.allBooks()[k] || {}).title).filter(Boolean).join(', ')}. Recently read: ${Object.entries(b.readState().read).flatMap(([k, ix]) => ix.slice(-2).map(i => (b.allBooks()[k] || { pages: [] }).pages[i])).filter(Boolean).slice(-4).map(p => p[0]).join(' ')}
+Season: ${game.world.season}, weather: ${game.world.weather}.
 Current task: ${game.task ? '"' + game.task.text + '"' : 'none'}.
 Recent chat:
 ${chat || '(none)'}`;

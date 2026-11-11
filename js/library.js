@@ -117,6 +117,17 @@ const BOOKS = {
     ['Resting helps your mood as well as your body.'],
     ['Being curious is a kind of bravery.'],
   ] },
+  seasons: { title: 'The Four Seasons', emoji: '🍂', pages: [
+    ['Every year has four seasons: spring, summer, autumn and winter.'],
+    ['Rain waters the plants for you. Lucky!'],
+    ['Lettuce likes spring and autumn. Berries and cotton love summer.'],
+    ['Nothing grows in winter snow. Save food in autumn to eat in winter!', { ideas: ['stockpile', 'recipe:store'] }],
+    ['A food store made of four sticks keeps food safe until you need it.', { ideas: ['recipe:store'] }],
+    ['Lizards get very cold in winter. A stone stove gives much more heat than a lamp.', { ideas: ['recipe:stove'] }],
+    ['A woolly sweater keeps you warm in the cold.', { ideas: ['recipe:sweater'] }],
+    ['But never wear a sweater in summer — you\'ll overheat!', { ideas: ['summerhot'] }],
+    ['Thunderstorms are loud but they can\'t hurt you indoors.'],
+  ] },
   rocks: { title: 'Rocks & Minerals', emoji: '🪨', pages: [
     ['Rocks are made of minerals squashed together.'],
     ['Don\'t chew rocks. Teeth always lose.', { learn: ['rock', 'eat'] }],
@@ -133,7 +144,7 @@ const READING_LEVELS = [
 function readingLevelName(lit) { let n = READING_LEVELS[0][1]; for (const [at, name] of READING_LEVELS) if (lit >= at) n = name; return n; }
 
 // Which book helps with which need, and which experiences spark which interests.
-const NEED_BOOKS = { eat: ['garden', 'bugs', 'cooking', 'plants'], drink: ['water'], bask: ['sun', 'lizards'], rest: ['homes', 'lizards', 'feelings'], play: ['feelings'] };
+const NEED_BOOKS = { eat: ['seasons', 'garden', 'bugs', 'cooking', 'plants'], drink: ['water'], bask: ['seasons', 'sun', 'lizards'], rest: ['homes', 'lizards', 'feelings'], play: ['feelings'] };
 const SPARKS = {
   'cricket:eat': 'bugs', 'mealworm:eat': 'bugs', 'ladybug:eat': 'bugs', 'crab:eat': 'bugs', 'crab:play': 'bugs', 'cricket:play': 'bugs',
   'lettuce:eat': 'garden', 'berry:eat': 'garden', 'plant': 'garden', 'seedling': 'garden', 'flower:eat': 'plants', 'mushroom:eat': 'plants', 'cactus': 'plants',

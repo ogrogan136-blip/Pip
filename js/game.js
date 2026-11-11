@@ -81,7 +81,9 @@ class Game {
     this.world.update(dt, this.lizard);
     this.lizard.update(dt, this.world, this.brain, this.task);
     while (this.world.events.length) {
-      const text = this.brain.gardenEvent(this.world.events.shift());
+      const ev = this.world.events.shift();
+      if (ev.kind === 'weather' || ev.kind === 'season' || ev.kind === 'thunderclap') { this.weatherEvent(ev); continue; }
+      const text = this.brain.gardenEvent(ev);
       if (text) { this.lizard.think(text, 'discover'); this.lizard.setMood(/died|dried|shrivel/.test(text) ? 'meh' : 'happy', 4); }
     }
     if (this.celebrate > 0) this.celebrate -= dt;
@@ -93,6 +95,32 @@ class Game {
       else maybeDaydream(this);
     }
     if (this.askTimer <= 0) { this.askTimer = 5; if (!this.nextAsk) this.nextAsk = this.world.time + 45; this.maybeAsk(); }
+  }
+
+  // ---- weather & seasons ----
+  weatherEvent(ev) {
+    const L = this.lizard, b = this.brain, say = (t, mood) => { L.think(t, 'discover'); if (mood) L.setMood(mood, 4); };
+    if (ev.kind === 'thunderclap') { L.needs.fun = clamp(L.needs.fun - 2, 0, 100); if (Math.random() < 0.3) say(pick(['Eek! 😨', 'BOOM! I don\'t like that. 😰', 'So loud! 🙉']), 'hurt'); return; }
+    if (ev.kind === 'weather') {
+      const lines = { rain: 'Ooh, rain! My plants will love this. 🌧️', thunder: 'Eek, a thunderstorm! I want to be indoors. ⛈️', snow: 'Snow! Brrr… ❄️', heatwave: 'Phew, it\'s SO hot today. 🥵', sunny: 'The sun\'s out! ☀️', cloudy: 'Clouds rolling in. ☁️' };
+      if (Math.random() < 0.7) say(lines[ev.weather] || 'The weather changed.');
+      if (ev.weather === 'thunder') b.spark('seasons', 0.05);
+      return;
+    }
+    // a new season
+    const store = this.world.objects.find(o => o.type === 'store');
+    if (ev.season === 'winter') {
+      b.winters = (b.winters || 0) + 1;
+      if (store && (store.contents || []).length) say(`Winter is here and nothing grows any more… but I've got ${store.contents.length} things saved in my food store! 🏚️😌`, 'happy');
+      else say('Winter… it\'s cold and everything has stopped growing. ❄️', 'meh');
+      b.spark('seasons', 0.15);
+    } else if (ev.season === 'spring') {
+      if ((b.winterHunger || 0) > 60 && b.addIdea('stockpile', 'experience')) say('That winter was SO hungry. Next autumn I\'ll save food for winter! 🤔', 'curious');
+      else say('Spring! Things are growing again. 🌸', 'happy');
+      b.winterHunger = 0;
+    } else if (ev.season === 'autumn') {
+      say(b.hasIdea('stockpile') ? 'Autumn! Time to fill my food store before winter comes. 🍂' : 'The leaves are turning… it\'s getting colder. 🍂');
+    } else say('Summer! Lovely and warm. 🌞', 'happy');
   }
 
   // ---- tasks ----

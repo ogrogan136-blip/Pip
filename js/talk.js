@@ -139,6 +139,16 @@ const Talk = {
       (b.asked = b.asked || {}).hut = 1;
       return this.ask({ kind: 'help', text: 'Sleeping on logs and sand isn\'t very comfy. Any ideas for a better place to sleep?', options: [{ label: '🛖 Build a cabin from a log and sticks', act: 'idea', idea: 'recipe:hut', also: ['break', 'craft'] }, { label: '🪺 Make a nest from sticks', act: 'idea', idea: 'recipe:nest', also: ['break', 'craft'] }] });
     }
+    // winter troubles
+    const W = this.world;
+    if (W.season === 'winter' && L.refill && L.refill.fullness && !b.hasIdea('stockpile') && !b.asked?.winter) {
+      (b.asked = b.asked || {}).winter = 1;
+      return this.ask({ kind: 'help', text: 'It\'s winter and nothing grows. How am I supposed to find food?', options: [{ label: '🏚️ Build a food store and fill it in autumn', act: 'idea', idea: 'recipe:store', also: ['stockpile', 'craft', 'break'] }] });
+    }
+    if (L.needs.warmth < 35 && !W.objects.some(o => o.type === 'stove') && !b.asked?.cold) {
+      (b.asked = b.asked || {}).cold = 1;
+      return this.ask({ kind: 'help', text: 'I\'m freezing! The lamp isn\'t enough. How can I stay warm?', options: [{ label: '🔥 Build a stone stove from a rock and sticks', act: 'idea', idea: 'recipe:stove', also: ['craft', 'break'] }, { label: '🧶 Knit a sweater from wool', act: 'idea', idea: 'recipe:sweater', also: ['craft'] }] });
+    }
     // 4. wants to make something new: ask its human for ideas
     if (this.world.time > this.nextIdeaAsk && b.hasIdea('craft') && L.needs.fun < 70 && !(L.refill && (L.refill.fullness || L.refill.hydration)) && Math.random() < 0.35) {
       this.nextIdeaAsk = this.world.time + 900 + Math.random() * 900;

@@ -46,7 +46,7 @@ class Brain {
   }
 
   toJSON() {
-    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, combos: this.combos, nextTinker: this.nextTinker, customRecipes: this.customRecipes, skills: this.skills, tools: this.tools, spent: this.spent, seeds: this.seeds, farm: this.farm, garden: this.garden, asked: this.asked };
+    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, winterHunger: this.winterHunger, winters: this.winters, combos: this.combos, nextTinker: this.nextTinker, customRecipes: this.customRecipes, skills: this.skills, tools: this.tools, spent: this.spent, seeds: this.seeds, farm: this.farm, garden: this.garden, asked: this.asked };
   }
 
   key(t, v) { return t + ':' + v; }
@@ -147,6 +147,10 @@ class Brain {
 
   // Called every few seconds: slow thoughts that turn experience into new ideas.
   ponder(lizard, world, secs) {
+    if (world.season === 'winter' && lizard.refill && lizard.refill.fullness) this.winterHunger = (this.winterHunger || 0) + secs;
+    // wanting to build something but having no sticks: where could sticks come from?
+    const needSticks = (this.hasIdea('stockpile') && !world.objects.some(o => o.type === 'store')) || (world.season === 'winter' && lizard.needs.warmth < 30);
+    if (needSticks && !this.hasIdea('break') && world.objects.some(o => o.type === 'log')) { this.addIdea('break', 'thinking'); this.addIdea('craft', 'thinking'); return 'I\'ll need sticks to build something… That log has loose bark. Maybe I can pull bits off! 🤔'; }
     lizard.hungryTime = lizard.needs.fullness < 35 ? (lizard.hungryTime || 0) + secs : 0;
     lizard.boredTime = lizard.needs.fun < 30 ? (lizard.boredTime || 0) + secs : 0;
     if ((lizard.hungryTime > 80 || lizard.boredTime > 150) && this.addIdea('dig', 'thinking')) {
@@ -184,6 +188,9 @@ class Brain {
       case 'skewer': return n.fullness < 75 ? 'What if I stuck a cricket on a stick? 🤔' : null;
       case 'cricketbox': return this.known('cricket', 'eat') && this.hasIdea('plant') ? 'Crickets are so tasty. What if I made them a home so there\'d always be more? 🤔' : null;
       case 'wool': return 'This cotton is so soft. I bet I could twist it into something… 🤔';
+      case 'store': return this.hasIdea('stockpile') ? 'Winter is coming… I need somewhere to keep food. What if I built a little shed out of sticks? 🤔' : null;
+      case 'stove': return (world.season === 'winter' || world.season === 'autumn') && n.warmth < 45 ? 'Brrr! The lamp isn\'t enough in this cold. What if I built a stove out of a rock and some sticks? 🔥🤔' : null;
+      case 'sweater': return n.warmth < 50 ? 'This wool is so warm… what if I wrapped it around myself? Like a sweater! 🤔' : null;
       case 'bed': return has('hut') || this.hasIdea('recipe:hut') ? 'Soft wool and sticks… that\'s a bed! A proper comfy bed! 🤔' : null;
     }
     return null;
@@ -240,6 +247,21 @@ class Brain {
         break;
       }
     }
+    // getting ready for winter: carry food to the store
+    const ww = lizard.worldRef, store = ww && ww.objects.find(o => o.type === 'store');
+    if (this.hasIdea('stockpile') && store && (ww.season === 'autumn' || (ww.season === 'summer' && ww.seasonProgress > 0.6)) && (store.contents || []).length < 12 && !(lizard.refill && lizard.refill.fullness)) {
+      const held = lizard.carrying && ww.get(lizard.carrying);
+      if (held && TYPES[held.type].food) push({ verb: 'stash', type: 'store', objId: store.id, x: store.x, y: store.y + 38 }, 0.8);
+      else {
+        const food = mem.find(m => { const o = ww.get(m.id), e = this.known(m.type, 'eat'); return o && !o.carried && TYPES[m.type] && TYPES[m.type].food && !TYPES[m.type].hops && !TYPES[m.type].crawls && e && (e.d.fullness || 0) >= 8 && (e.d.health || 0) >= 0; });
+        if (food) push({ verb: 'grab', type: food.type, forStore: true, objId: food.id, x: food.x, y: food.y }, 0.55);
+      }
+    }
+    // clothes: on when cold, off when hot
+    const sweater = ww && ww.objects.find(o => o.type === 'sweater' && !o.carried);
+    const hotOut = ww && (ww.season === 'summer' || ww.weather === 'heatwave');
+    if (sweater && !lizard.wearing && needs.warmth < 45 && !(hotOut && this.hasIdea('summerhot'))) push({ verb: 'wear', type: 'sweater', objId: sweater.id, x: sweater.x, y: sweater.y }, 0.45 + (45 - needs.warmth) / 60);
+    if (lizard.wearing && needs.warmth > 82) push({ verb: 'unwear', type: 'ground', objId: null, x: lizard.x, y: lizard.y }, 1.0);
     if (this.hasIdea('break')) {
       const s = this.skills.break || { n: 0, hits: 0 };
       const log = mem.find(m => m.type === 'log' && lizard.worldRef && lizard.worldRef.get(m.id) && (lizard.worldRef.get(m.id).breaks || 0) < 3);
@@ -251,7 +273,7 @@ class Brain {
         if (!this.hasIdea('recipe:' + r)) continue;
         if (!Object.entries(R.needs).every(([t, n]) => count(t) >= n)) continue;
         const world = lizard.worldRef, exists = t => world ? world.objects.some(o => o.type === t) : count(t) > 0;
-        const want = r === 'bucket' ? !exists('bucket') : r === 'hut' ? !exists('hut') : r === 'bed' ? !exists('bed') : r === 'wool' ? !exists('wool') && !exists('bed') && this.hasIdea('recipe:bed') : R.tool ? !this.tools[R.tool] && this.hasIdea('dig') : R.farm ? count(R.makes) === 0 : R.food ? count(R.makes) === 0 && needs.fullness < 75 : count(R.makes) === 0;
+        const want = r === 'store' ? !exists('store') && this.hasIdea('stockpile') : r === 'stove' ? !exists('stove') : r === 'sweater' ? !exists('sweater') && !lizard.wearing : r === 'bucket' ? !exists('bucket') : r === 'hut' ? !exists('hut') : r === 'bed' ? !exists('bed') : r === 'wool' ? !exists('wool') && !exists('bed') && this.hasIdea('recipe:bed') : R.tool ? !this.tools[R.tool] && this.hasIdea('dig') : R.farm ? count(R.makes) === 0 : R.food ? count(R.makes) === 0 && needs.fullness < 75 : count(R.makes) === 0;
         if (!want) continue;
         const first = mem.find(m => m.type === Object.keys(R.needs)[0]);
         push({ verb: 'craft', type: R.makes || 'stick', recipe: r, objId: first.id, x: first.x, y: first.y }, 0.85);
@@ -494,6 +516,11 @@ class Brain {
         task: 0,
         travel: -(d / 700) * (0.4 + (100 - needs.energy) / 120),
       };
+      if (t === 'store' && v === 'eat' && mem) {
+        const so = lizard.worldRef && lizard.worldRef.get(mem.id), c = (so && so.contents) || [];
+        if (!c.length) { parts.need = -1; parts.curious = 0; }
+        else parts.need = Math.max(...c.map(f => this.expectedValue(f, 'eat', needs, weights)), 0.1);
+      }
       // instinct: when Pip badly needs something, things that *look* right are tried first
       if (desperateFor[v] && LOOKS_LIKE[v] && LOOKS_LIKE[v].includes(t) && !this.known(t, v)) parts.curious += 0.6 * desperateFor[v] + 0.2;
       // tried it a couple of times and nothing happened? Clearly that doesn't work.
@@ -557,6 +584,8 @@ class Brain {
     let r = Math.random() * ws.reduce((a, b) => a + b, 0), pick = top[0];
     for (let i = 0; i < top.length; i++) { r -= ws[i]; if (r <= 0) { pick = top[i]; break; } }
 
+    // thunder is scary: a house sounds good
+    if (world && world.weather === 'thunder') for (const c of candidates) if (c.verb === 'rest' && TYPES[c.type] && TYPES[c.type].building) c.score += 0.7;
     pick.desperateFor = desperateFor;
     pick.reason = this.reasonFor(pick);
     pick.thought = this.thoughtFor(pick, lizard, task, weights);
@@ -593,6 +622,10 @@ class Brain {
       if (c.verb === 'dig') return !s || !s.n ? 'Let me try scratching at the sand here…' : pick(['Maybe there\'s something buried here.', 'Time to dig.', 'I\'ll try digging over there.']);
       if (c.verb === 'plant') return !s || !s.hits ? `Let me try planting this ${TYPES[c.type].emoji} seed…` : pick([`I'll plant a ${TYPES[c.type].emoji} seed in my garden.`, 'Time to grow some more food.']);
       if (c.verb === 'tend') return this.hasIdea('carry') ? 'Time to water my plants. 🪣💧' : pick(['My seedling looks thirsty. I\'ll water it. 💧', 'Let me look after my little plant.']);
+      if (c.verb === 'stash') return 'Into the food store it goes, for winter. 🏚️';
+      if (c.verb === 'grab' && c.forStore) return `I'll take that ${TYPES[c.type].emoji} to my food store for winter.`;
+      if (c.verb === 'wear') return 'Brrr. Time to put my sweater on. 🧥';
+      if (c.verb === 'unwear') return 'Phew, too hot for a sweater!';
       if (c.verb === 'tinker') return `What happens if I put the ${TYPES[c.type].emoji} and the ${TYPES[c.with].emoji} together? 🤔`;
       if (c.verb === 'grab') return 'I\'ll grab my bucket. 🪣';
       if (c.verb === 'fill') return 'Off to the well to fill my bucket. ⛲';
@@ -639,7 +672,7 @@ class Brain {
     const pending = Object.keys(this.ideas).filter(i => !this.skills[i]);
     if (pending.length && Math.random() < 0.5) {
       const i = pending[0];
-      const lines = { dig: 'I keep thinking about what\'s under the sand…', break: 'That log… I bet bits would come off.', craft: 'I could build something. But what?', plant: 'I want to grow my own food. I need some seeds…', tend: 'Plants need water too, I think.' };
+      const lines = { dig: 'I keep thinking about what\'s under the sand…', break: 'That log… I bet bits would come off.', craft: 'I could build something. But what?', plant: 'I want to grow my own food. I need some seeds…', tend: 'Plants need water too, I think.', stockpile: 'I should save some food for winter…', summerhot: 'Sweaters are for winter, not summer.', carry: 'I need something to carry water in.' };
       if (lines[i]) return lines[i];
       if (i.startsWith('recipe:') && RECIPES[i.slice(7)]) return `I still want to try making ${RECIPES[i.slice(7)].label}.`;
     }
