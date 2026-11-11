@@ -77,6 +77,10 @@
         <h2>Talk with Pip</h2>
         <ol id="chat" class="chat" aria-live="polite"></ol>
         <div id="quick" class="quick"></div>
+        <div class="ai-row" id="aiRow" hidden>
+          <label class="check"><input type="checkbox" id="aiOn" checked> 🧠 Smart Pip (uses your Claude)</label>
+          <button type="button" id="aiThink">💭 Let Pip think deeply</button>
+        </div>
         <form id="chatForm" class="task-builder">
           <input id="chatText" type="text" maxlength="140" placeholder="Say something to Pip…" aria-label="Message to Pip" autocomplete="off">
           <button class="primary" type="submit">Send</button>
@@ -146,6 +150,7 @@
   <script src="js/brain.js"></script>
   <script src="js/lizard.js"></script>
   <script src="js/talk.js"></script>
+  <script src="js/ai.js"></script>
   <script src="js/game.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
   <script src="js/render3d.js"></script>

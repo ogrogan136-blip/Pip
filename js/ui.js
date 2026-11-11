@@ -249,14 +249,37 @@
     $('chatText').placeholder = q && q.kind === 'word' ? 'Explain it, e.g. "play with the ball"' : 'Say something to Pip…';
   }
   $('quick').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { game.answerOption(+b.dataset.i); renderChat(); } });
-  $('chatForm').addEventListener('submit', e => {
+  function showThinking(on) {
+    const el = $('chat');
+    const old = el.querySelector('.thinking');
+    if (old) old.remove();
+    if (on) { const li = document.createElement('li'); li.className = 'pip thinking'; li.textContent = '🦎 …'; el.appendChild(li); el.scrollTop = el.scrollHeight; }
+  }
+  function aiProblem(kind) {
+    if (kind === 'off') { $('aiRow').hidden = true; game.addLog('(Smart Pip is off, so Pip uses its simple word-matching.)', 'task'); }
+    else if (kind === 'busy') game.addLog('(Pip\'s smart brain needs a rest. Try again in a bit.)', 'task');
+  }
+  $('chatForm').addEventListener('submit', async e => {
     e.preventDefault();
     const t = $('chatText').value.trim();
-    if (!t) return;
+    if (!t || AI.busy) return;
     $('chatText').value = '';
-    game.say(t);
-    renderChat();
+    if (!(AI.ready && $('aiOn').checked)) { game.say(t); renderChat(); return; }
+    game.youSay(t); renderChat();
+    AI.busy = true; showThinking(true);
+    try { applyAiReply(game, await AI.reply(game, t)); }
+    catch (err) { aiProblem(AI.handleError(err)); game.chat.pop(); game.say(t); }
+    finally { AI.busy = false; showThinking(false); chatSig = null; renderChat(); save(); }
   });
+  $('aiThink').onclick = async () => {
+    if (AI.busy || !AI.ready) return;
+    AI.busy = true; $('aiThink').disabled = true; $('aiThink').textContent = '💭 Thinking…';
+    game.lizard.think('Hmm… let me think about everything…', 'thought');
+    try { applyAiReflection(game, await AI.reflect(game)); }
+    catch (err) { aiProblem(AI.handleError(err)); }
+    finally { AI.busy = false; $('aiThink').disabled = false; $('aiThink').textContent = '💭 Let Pip think deeply'; save(); }
+  };
+  AI.init().then(ok => { if (ok) $('aiRow').hidden = false; });
 
   // ---------- make your own thing ----------
   const LEVELS = [['nothing', 'nothing happens'], ['good', 'good'], ['great', 'great'], ['bad', 'it hurts']];

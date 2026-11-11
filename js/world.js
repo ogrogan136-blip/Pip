@@ -217,7 +217,10 @@ class World {
     this.addFx('sand', x, y);
     const r = Math.random();
     const table = luck ? [['mealworm', 0.3], ['crab', 0.55], ['shell', 0.72], ['bone', 0.85], ['berry', 1]] : [['mealworm', 0.4], ['crab', 0.58], ['shell', 0.76], ['bone', 0.9], ['berry', 1]];
-    const type = table.find(([, p]) => r <= p)[0];
+    let type = table.find(([, p]) => r <= p)[0];
+    // things Pip imagined might be buried
+    const extras = Object.keys(TYPES).filter(k => TYPES[k].buried);
+    if (extras.length && Math.random() < 0.3) type = extras[Math.floor(Math.random() * extras.length)];
     this.add(type, x, y);
     return type;
   }

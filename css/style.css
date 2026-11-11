@@ -179,6 +179,9 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .chat li.pip { background: var(--green-soft); align-self: flex-start; border-bottom-left-radius: 4px; }
 .chat li.you { background: var(--line); align-self: flex-end; border-bottom-right-radius: 4px; }
 .chat li.empty { align-self: stretch; max-width: none; padding: 0; }
+.ai-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ai-row button { font-size: 13px; padding: 4px 10px; }
+.chat li.thinking { opacity: .6; font-style: italic; }
 .quick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .quick button { font-size: 13px; padding: 4px 10px; border-radius: 14px; border-color: var(--green); }
 #chatPanel.asking { border-color: var(--green); box-shadow: 0 0 0 2px var(--green-soft); }

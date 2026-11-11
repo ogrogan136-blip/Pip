@@ -18,6 +18,7 @@ const BAD_EFFECT = { health: -12, fun: -5 };
 function registerCustomType(def) {
   TYPES[def.key] = {
     emoji: def.emoji || '❔', name: def.name, size: def.size || 14, food: !!def.consumable, crawls: !!def.moves,
+    buried: !!def.buried, hidden: !!def.buried, byPip: !!def.byPip,
     custom: true, shape: def.shape || 'ball', color: def.color || '#8e6ad8', words: wordsOf(def.name),
   };
   const fx = {};
