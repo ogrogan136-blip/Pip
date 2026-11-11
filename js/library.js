@@ -78,6 +78,17 @@ const BOOKS = {
     ['Crabs bury themselves in sand to hide. They\'re good eating.', { learn: ['crab', 'eat'] }],
     ['Fossils are ancient bones that turned to stone.'],
   ] },
+  garden: { title: 'Grow Your Own Food', emoji: '🌱', pages: [
+    ['Fruit has seeds inside. Keep them after you eat!', { idea: 'plant' }],
+    ['Push a seed into the sand and it grows into a seedling.'],
+    ['Seedlings grow much faster if you water them.', { idea: 'tend' }],
+    ['Lettuce can grow back from its stump. Plant that too!'],
+    ['A grown plant gives food again and again.'],
+    ['Lots of plants in one place is called a farm. A farm means food every day!'],
+    ['Recipe: Cricket Box. Two sticks and a lettuce leaf make a home where crickets breed.', { idea: 'recipe:cricketbox' }],
+    ['Flowers bring bugs, and bugs bring more bugs.'],
+    ['Almost anything that grew from a seed can be planted. Experiment!'],
+  ] },
   stars: { title: 'Stars & the Night', emoji: '⭐', pages: [
     ['Stars are giant balls of fire, very far away.'],
     ['The moon has no light of its own. It reflects the sun.'],
@@ -110,10 +121,10 @@ const READING_LEVELS = [
 function readingLevelName(lit) { let n = READING_LEVELS[0][1]; for (const [at, name] of READING_LEVELS) if (lit >= at) n = name; return n; }
 
 // Which book helps with which need, and which experiences spark which interests.
-const NEED_BOOKS = { eat: ['bugs', 'cooking', 'plants'], drink: ['water'], bask: ['sun', 'lizards'], rest: ['lizards', 'feelings'], play: ['feelings'] };
+const NEED_BOOKS = { eat: ['garden', 'bugs', 'cooking', 'plants'], drink: ['water'], bask: ['sun', 'lizards'], rest: ['lizards', 'feelings'], play: ['feelings'] };
 const SPARKS = {
   'cricket:eat': 'bugs', 'mealworm:eat': 'bugs', 'ladybug:eat': 'bugs', 'crab:eat': 'bugs', 'crab:play': 'bugs', 'cricket:play': 'bugs',
-  'lettuce:eat': 'cooking', 'berry:eat': 'cooking', 'flower:eat': 'plants', 'mushroom:eat': 'plants', 'cactus': 'plants',
+  'lettuce:eat': 'garden', 'berry:eat': 'garden', 'plant': 'garden', 'seedling': 'garden', 'flower:eat': 'plants', 'mushroom:eat': 'plants', 'cactus': 'plants',
   'water': 'water', 'lamp': 'sun', 'rock': 'rocks', 'log': 'building', 'stick': 'building', 'ball': 'feelings',
 };
 
@@ -206,6 +217,7 @@ RECIPES.salad = { needs: { lettuce: 1, berry: 1 }, makes: 'salad', label: 'a des
 RECIPES.wrap = { needs: { lettuce: 1, cricket: 1 }, makes: 'wrap', label: 'a lettuce wrap', food: true };
 TYPES.wrap = { emoji: '🌯', name: 'lettuce wrap', size: 14, food: true, hidden: true };
 EFFECTS.wrap = { eat: { fullness: 60, hydration: 10, fun: 6 } };
+RECIPES.cricketbox = { needs: { stick: 2, lettuce: 1 }, makes: 'cricketbox', label: 'a cricket box', farm: true };
 RECIPES.skewer = { needs: { cricket: 1, stick: 1 }, makes: 'skewer', label: 'a bug on a stick', food: true };
 TYPES.salad = { emoji: '🥗', name: 'desert salad', size: 15, food: true, hidden: true };
 TYPES.skewer = { emoji: '🍢', name: 'bug on a stick', size: 14, food: true, hidden: true };

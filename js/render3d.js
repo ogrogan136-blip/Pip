@@ -43,7 +43,7 @@ function jitterGeo(geo, amt, seed = 1) {
 }
 
 // ---------- object models ----------
-function buildModel(type) {
+function buildModel(type, o) {
   const g = new THREE.Group();
   const add = o => (g.add(o), o);
   switch (type) {
@@ -198,6 +198,32 @@ function buildModel(type) {
     case 'skewer': {
       const st = add(mesh(cyl(0.9, 0.9, 30, 6), mat('#8a5a2b'), 0, 4, 0)); st.rotation.z = Math.PI / 2;
       for (let i = 0; i < 3; i++) { const b = add(mesh(new THREE.CapsuleGeometry(2.6, 5, 4, 8), mat(i === 1 ? '#6b4a24' : '#8c6a3a'), -7 + i * 7, 4, 0)); b.rotation.z = Math.PI / 2; }
+      break;
+    }
+    case 'seedling': {
+      add(mesh(cyl(9, 10, 2, 14), mat('#7a5a3a', { roughness: 1 }), 0, 1, 0));
+      const sprout = new THREE.Group();
+      sprout.add(mesh(cyl(0.7, 0.9, 10, 6), mat('#4b9a3c'), 0, 5, 0));
+      for (const s of [-1, 1]) { const l = mesh(sphere(3, 8), mat('#6fbf45'), s * 3, 10, 0); l.scale.set(1.3, 0.35, 0.8); l.rotation.z = s * 0.4; sprout.add(l); }
+      g.add(sprout); g.userData.sprout = sprout;
+      break;
+    }
+    case 'plant': {
+      const prod = TYPES[o && o.produce] || TYPES.berry;
+      const leaf = { lettuce: '#6fb53d', berry: '#3c8a2e', flower: '#4b9a3c' }[o && o.produce] || '#4f9a3f';
+      add(mesh(cyl(12, 13, 3, 14), mat('#7a5a3a', { roughness: 1 }), 0, 1.5, 0));
+      const bush = add(mesh(jitterGeo(sphere(15, 12), 4, 9), mat(leaf, { roughness: 0.8, flatShading: true }), 0, 16, 0));
+      bush.scale.y = 0.85;
+      const fruit = prod.custom ? prod.color : ({ berry: '#d8323c', lettuce: '#a5d65a', flower: '#ffd23f' }[o && o.produce] || '#e85a38');
+      for (let i = 0; i < 6; i++) add(mesh(sphere(2.6, 8), mat(fruit, { roughness: 0.4 }), Math.cos(i * 1.1) * 12, 13 + (i % 3) * 5, Math.sin(i * 1.1) * 12));
+      g.userData.labelEmoji = prod.emoji;
+      break;
+    }
+    case 'cricketbox': {
+      add(mesh(new THREE.BoxGeometry(34, 16, 24), mat('#9c6b35', { roughness: 0.9 }), 0, 8, 0));
+      add(mesh(new THREE.BoxGeometry(30, 1, 20), mat('#6fb53d'), 0, 16.3, 0));
+      for (let i = 0; i < 4; i++) add(mesh(cyl(1, 1, 36, 6), mat('#7a4f25'), 0, 17.5, -9 + i * 6)).rotation.z = Math.PI / 2;
+      g.userData.labelEmoji = '🦗';
       break;
     }
     case 'stick': {
@@ -473,9 +499,12 @@ class Renderer3D {
     for (const o of world.objects) {
       alive.add(o.id);
       let m = this.objMeshes.get(o.id);
+      // a seedling that grew up: rebuild its model
+      if (m && m.userData.type !== o.type) { this.scene.remove(m); this.objMeshes.delete(o.id); m = null; }
       if (!m) {
-        m = buildModel(o.type);
+        m = buildModel(o.type, o);
         m.userData.id = o.id;
+        m.userData.type = o.type;
         if (!TYPES[o.type].building) m.rotation.y = (o.id * 2.39) % (Math.PI * 2);
         if (TYPES[o.type].heat) {
           const glow = new THREE.Mesh(new THREE.PlaneGeometry(TYPES[o.type].heat * 2, TYPES[o.type].heat * 2), new THREE.MeshBasicMaterial({ map: this.glowTex, transparent: true, depthWrite: false }));
@@ -495,11 +524,11 @@ class Renderer3D {
         m.userData.grow = 1;
       } else if (m.userData.wasCarried) { m.scale.setScalar(1); m.rotation.z = 0; }
       m.userData.wasCarried = !!o.carried;
-      if (T.custom && !m.userData.label) {
+      if ((T.custom || m.userData.labelEmoji) && !m.userData.label) {
         // a floating icon, so you can tell what an invented thing is
         const c = document.createElement('canvas'); c.width = c.height = 64;
         const x = c.getContext('2d'); x.font = '48px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
-        x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(T.emoji, 32, 36);
+        x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(m.userData.labelEmoji || T.emoji, 32, 36);
         const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
         sp.scale.set(20, 20, 1); sp.position.y = T.size * 2 + 14;
         m.add(sp); m.userData.label = sp;
@@ -519,6 +548,7 @@ class Renderer3D {
           m.userData.ball.rotateOnWorldAxis(axis, -sp / 60 / 13 * 2);
         }
       }
+      if (m.userData.sprout) { const g2 = 0.5 + Math.min(1, (o.age || 0) / 600) * 1.3; m.userData.sprout.scale.setScalar(g2); }
       if (m.userData.water) m.userData.water.position.y = 8.4 + Math.sin(o.t * 2) * 0.2;
       if (m.userData.winMat) m.userData.winMat.emissiveIntensity = 0.25 + (1 - world.daylight) * 1.6 + (this.reading === o.id ? 0.8 : 0);
       if (m.userData.light) m.userData.light.intensity = 1.2 + (1 - world.daylight) * 1.2 + Math.sin(o.t * 13) * 0.03;

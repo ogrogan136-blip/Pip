@@ -37,6 +37,8 @@ class Brain {
     this.skills = {};    // things Pip has practised: name -> { n: tries, hits: successes }
     this.tools = {};     // things Pip has made for itself
     this.spent = {};     // logs with nothing left to pull off
+    this.seeds = {};     // seeds Pip has kept: type -> how many
+    this.farm = null;    // where Pip grows things
     if (data) Object.assign(this, data);
     // Water play used to do almost nothing; let Pip find out it splashes now.
     const wp = this.effects['water:play'];
@@ -44,7 +46,7 @@ class Brain {
   }
 
   toJSON() {
-    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, skills: this.skills, tools: this.tools, spent: this.spent, asked: this.asked };
+    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, skills: this.skills, tools: this.tools, spent: this.spent, seeds: this.seeds, farm: this.farm, asked: this.asked };
   }
 
   key(t, v) { return t + ':' + v; }
@@ -76,12 +78,31 @@ class Brain {
     return true;
   }
   skill(name) { return this.skills[name] || (this.skills[name] = { n: 0, hits: 0 }); }
+  // Where the next plant goes: a tidy patch near the water dish.
+  farmSpot(lizard, n) {
+    if (!this.farm) {
+      const w = lizard.worldRef, water = w && w.objects.find(o => o.type === 'water');
+      this.farm = water ? { x: clamp(water.x - 150, 80, WORLD_W - 80), y: clamp(water.y - 40, 80, WORLD_H - 80) } : { x: lizard.x, y: lizard.y };
+    }
+    const col = n % 3, row = Math.floor(n / 3);
+    return { x: clamp(this.farm.x + (col - 1) * 50, 30, WORLD_W - 30), y: clamp(this.farm.y + (row - 1) * 50, 30, WORLD_H - 30) };
+  }
+  // Eating something that grew from a seed: keep the seed, once Pip knows to.
+  keepSeedOk(type) { const T = TYPES[type]; return !!T && !!T.food && !T.hops && !T.crawls && !T.wiggles && !['mushroom', 'salad', 'wrap', 'skewer'].includes(type); }
+  keepSeed(type) {
+    const T = TYPES[type];
+    if (!this.hasIdea('plant') || !T || !T.food || T.hops || T.crawls || T.wiggles) return false;
+    if (['mushroom', 'salad', 'wrap', 'skewer'].includes(type)) return false;
+    this.seeds[type] = Math.min(5, (this.seeds[type] || 0) + 1);
+    return true;
+  }
+
   // the next thing a book (or a thoughtful moment) could put in Pip's head
   nextIdea() {
     if (!this.hasIdea('dig')) return 'dig';
     if (!this.hasIdea('break')) return 'break';
     if (!this.hasIdea('craft') && this.seen.stick) return 'craft';
-    if (this.hasIdea('craft')) for (const r of Object.keys(RECIPES)) if (!this.hasIdea('recipe:' + r)) return 'recipe:' + r;
+    if (this.hasIdea('craft')) for (const r of ['nest', 'digger', 'den']) if (!this.hasIdea('recipe:' + r)) return 'recipe:' + r;
     return null;
   }
 
@@ -91,6 +112,10 @@ class Brain {
     lizard.boredTime = lizard.needs.fun < 30 ? (lizard.boredTime || 0) + secs : 0;
     if ((lizard.hungryTime > 80 || lizard.boredTime > 150) && this.addIdea('dig', 'thinking')) {
       return lizard.hungryTime > 80 ? 'I\'ve been hungry for ages… is this really all there is? What about under the sand? 🤔' : 'I wonder what\'s underneath all this sand… 🤔';
+    }
+    if (this.skills.plant && this.skills.plant.hits && Math.random() < 0.08) {
+      const foods = Object.keys(this.effects).filter(k => k.endsWith(':eat') && (this.effects[k].d.fullness || 0) >= 8).map(k => k.split(':')[0]).filter(t => TYPES[t] && !(this.seeds[t] > 0) && this.keepSeedOk(t));
+      if (foods.length) { const t = foods[Math.floor(Math.random() * foods.length)]; this.seeds[t] = 1; return `What if I planted a ${TYPES[t].emoji} ${TYPES[t].name}? I saved a little bit to try. 🌱`; }
     }
     const logPlay = this.known('log', 'play');
     if (logPlay && logPlay.n >= 3 && this.addIdea('break', 'playing')) return 'The bark on that log is loose. I wonder if I could pull bits off… 🤔';
@@ -119,6 +144,20 @@ class Brain {
       push({ verb: 'dig', type: 'ground', objId: null, x: clamp(lizard.x + Math.cos(a) * r, 40, WORLD_W - 40), y: clamp(lizard.y + Math.sin(a) * r, 40, WORLD_H - 40) },
         (s.n < 3 ? 0.75 * ready : 0.08) + hungry * 1.4 * rate + (needs.fun < 35 ? 0.3 * rate : 0));
     }
+    // gardening, once Pip has read about it
+    const seedTypes = Object.keys(this.seeds || {}).filter(t => this.seeds[t] > 0 && TYPES[t]);
+    const growing = mem.filter(m => m.type === 'seedling' || m.type === 'plant').length;
+    if (this.hasIdea('plant') && seedTypes.length && growing < 9) {
+      const s = this.skills.plant || { n: 0, hits: 0 };
+      const t = seedTypes[Math.floor(Math.random() * seedTypes.length)];
+      const spot = this.farmSpot(lizard, growing);
+      push({ verb: 'plant', type: t, objId: null, x: spot.x, y: spot.y }, (s.hits < 1 ? 0.7 * ready : 0.35) + (needs.fullness < 60 ? 0.25 : 0));
+    }
+    if (this.hasIdea('tend')) {
+      const w = lizard.worldRef;
+      const dry = mem.find(m => m.type === 'seedling' && w && w.get(m.id) && !(w.get(m.id).water > 0));
+      if (dry) push({ verb: 'tend', type: 'seedling', objId: dry.id, x: dry.x, y: dry.y }, 0.45);
+    }
     if (this.hasIdea('break')) {
       const s = this.skills.break || { n: 0, hits: 0 };
       const log = mem.find(m => m.type === 'log' && !this.spent[m.id]);
@@ -129,7 +168,7 @@ class Brain {
       for (const [r, R] of Object.entries(RECIPES)) {
         if (!this.hasIdea('recipe:' + r)) continue;
         if (!Object.entries(R.needs).every(([t, n]) => count(t) >= n)) continue;
-        const want = R.tool ? !this.tools[R.tool] && this.hasIdea('dig') : R.food ? count(R.makes) === 0 && needs.fullness < 75 : count(R.makes) === 0;
+        const want = R.tool ? !this.tools[R.tool] && this.hasIdea('dig') : R.farm ? count(R.makes) === 0 : R.food ? count(R.makes) === 0 && needs.fullness < 75 : count(R.makes) === 0;
         if (!want) continue;
         const first = mem.find(m => m.type === Object.keys(R.needs)[0]);
         push({ verb: 'craft', type: R.makes || 'stick', recipe: r, objId: first.id, x: first.x, y: first.y }, 0.85);
@@ -467,6 +506,8 @@ class Brain {
     if (c.kind === 'skill') {
       const s = this.skills[c.verb === 'craft' ? 'recipe:' + c.recipe : c.verb];
       if (c.verb === 'dig') return !s || !s.n ? 'Let me try scratching at the sand here…' : pick(['Maybe there\'s something buried here.', 'Time to dig.', 'I\'ll try digging over there.']);
+      if (c.verb === 'plant') return !s || !s.hits ? `Let me try planting this ${TYPES[c.type].emoji} seed…` : pick([`I'll plant a ${TYPES[c.type].emoji} seed in my garden.`, 'Time to grow some more food.']);
+      if (c.verb === 'tend') return pick(['My seedling looks thirsty. I\'ll water it. 💧', 'Let me look after my little plant.']);
       if (c.verb === 'break') return !s || !s.hits ? 'Let me see if I can pull a bit off this log…' : 'I need more sticks. Back to the log.';
       return !s || !s.hits ? `Let me try to make ${RECIPES[c.recipe].label}…` : `I'll make ${RECIPES[c.recipe].label}.`;
     }
@@ -510,7 +551,9 @@ class Brain {
     const pending = Object.keys(this.ideas).filter(i => !this.skills[i]);
     if (pending.length && Math.random() < 0.5) {
       const i = pending[0];
-      return i === 'dig' ? 'I keep thinking about what\'s under the sand…' : i === 'break' ? 'That log… I bet bits would come off.' : i === 'craft' ? 'I could build something. But what?' : `I still want to try making ${RECIPES[i.slice(7)].label}.`;
+      const lines = { dig: 'I keep thinking about what\'s under the sand…', break: 'That log… I bet bits would come off.', craft: 'I could build something. But what?', plant: 'I want to grow my own food. I need some seeds…', tend: 'Plants need water too, I think.' };
+      if (lines[i]) return lines[i];
+      if (i.startsWith('recipe:') && RECIPES[i.slice(7)]) return `I still want to try making ${RECIPES[i.slice(7)].label}.`;
     }
     const foods = [], hurts = [];
     for (const [k, e] of Object.entries(this.effects)) {

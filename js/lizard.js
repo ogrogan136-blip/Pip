@@ -226,7 +226,7 @@ class Lizard {
     this.state = 'acting';
     this.speed = 0;
     this.actObj = obj;
-    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13 }[plan.verb] || 4;
+    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13, plant: 7, tend: 5 }[plan.verb] || 4;
     this.longSleep = plan.verb === 'rest' && this.needs.energy < 40;
     if (this.longSleep) this.timer = 26; // a proper sleep
     this.inside = !!(obj && TYPES[obj.type].building && ['read', 'play', 'rest'].includes(plan.verb));
@@ -241,8 +241,8 @@ class Lizard {
     this.inside = false;
     if (obj) obj.held = false;
     this.drop(world);
-    if (p.type !== 'ground' && !obj) { this.state = 'deciding'; return; }
     if (p.kind === 'skill') return this.finishSkill(world, brain, obj);
+    if (p.type !== 'ground' && !obj) { this.state = 'deciding'; return; }
     let delta, r;
     if (p.verb === 'read') {
       // Inside the book shop: look up whatever was on its mind
@@ -260,6 +260,7 @@ class Lizard {
       if (p.verb === 'rest' && this.longSleep) { const extra = 20; this.needs.energy = clamp(this.needs.energy + extra, 0, 100); }
       const first = brain.learnEffect(p.type, p.verb, delta);
       r = brain.reactionFor(p.type, p.verb, delta, first);
+      if (p.verb === 'eat' && brain.keepSeed(p.type)) r.text += ' I kept a seed. 🌱';
       // Nobody told Pip what a book shop is for. Poking around inside is how it finds out.
       if (TYPES[p.type] && TYPES[p.type].building && p.verb === 'play' && !brain.known(p.type, 'read')) {
         brain.learnEffect(p.type, 'read', { fun: 6 });
@@ -346,6 +347,26 @@ class Lizard {
       if (Math.random() >= chance) text = 'I pulled at the bark but nothing came off. I\'ll try a different way next time.';
       else if (!world.breakOff(obj)) { brain.spent[obj.id] = 1; text = 'There\'s nothing more to pull off this one.'; }
       else { s.hits++; mood = 'happy'; text = s.hits === 1 ? 'CRACK! Bits of the log came off. Sticks! I made sticks! 🤯' : 'Crack. More sticks.'; }
+    } else if (p.verb === 'plant') {
+      const s = brain.skill('plant');
+      const chance = Math.min(0.9, 0.55 + 0.1 * s.n);
+      s.n++;
+      if ((brain.seeds[p.type] || 0) <= 0) text = 'Oh, I\'ve run out of those seeds.';
+      else if (Math.random() >= chance) { brain.seeds[p.type]--; text = 'I dropped the seed and lost it in the sand. Oops.'; }
+      else {
+        brain.seeds[p.type]--;
+        world.makeRoom();
+        const o = world.add('seedling', this.x + Math.cos(this.heading) * 18, this.y + Math.sin(this.heading) * 18);
+        if (o) { o.grows = p.type; o.age = 0; world.addFx('sand', o.x, o.y); }
+        s.hits++; mood = 'happy';
+        text = s.hits === 1 ? `I planted a ${TYPES[p.type].emoji} seed! Now I just have to wait for it to grow. 🌱` : `Planted another ${TYPES[p.type].emoji} seed. My garden is growing!`;
+      }
+    } else if (p.verb === 'tend') {
+      const s = brain.skill('tend');
+      s.n++; s.hits++;
+      if (obj) { obj.water = 150; world.addFx('ripple', obj.x, obj.y); }
+      text = obj ? 'There you go, little plant. Grow big! 💧🌱' : 'Hm, where did my seedling go?';
+      mood = obj ? 'happy' : 'meh';
     } else if (p.verb === 'craft') {
       const R = RECIPES[p.recipe], s = brain.skill('recipe:' + p.recipe);
       brain.skill('craft').n++;
@@ -361,7 +382,7 @@ class Lizard {
       }
     }
     brain.stats.actions++;
-    brain.spark(p.verb === 'dig' ? 'digging' : RECIPES[p.recipe] && RECIPES[p.recipe].food ? 'cooking' : 'building', 0.03);
+    brain.spark(p.verb === 'dig' ? 'digging' : ['plant', 'tend'].includes(p.verb) || (RECIPES[p.recipe] && RECIPES[p.recipe].farm) ? 'garden' : RECIPES[p.recipe] && RECIPES[p.recipe].food ? 'cooking' : 'building', 0.03);
     this.think(text, mood === 'happy' ? 'discover' : 'meh');
     this.setMood(mood === 'happy' ? 'happy' : 'meh');
     brain.satisfyCuriosity(world.time);

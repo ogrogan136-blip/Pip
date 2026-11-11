@@ -11,6 +11,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - **Learns to avoid** things that hurt it, and even steers around them.
 - **Learns to read.** Once Pip works out what the 📚 book shop is for, it starts by looking at pictures and slowly learns to read. The shop has 11 books (bugs, cooking, lizards, plants, water, sun, building, digging, stars, feelings, rocks). Pip reads a page or two per visit, picks books by its interests, and some pages teach it real things or recipes. With Smart Pip you can add new books on any topic.
 - **Gets ideas over time.** After long hunger it wonders what's under the sand and learns to dig (finding crabs, shells and more). Playing with logs leads to pulling sticks off them, and sticks lead to building a nest, a den and a digging stick. Books and hints from you can plant these ideas too. Every skill starts clumsy and improves with practice.
+- **Grows its own food.** Food only turns up now and then. After reading "Grow Your Own Food", Pip keeps seeds from what it eats, plants them in a patch by the water, waters the seedlings, and grown plants keep producing food. It can build a cricket box where crickets breed, and it can plant foods it imagined itself.
 - **Thinks out loud.** The 💭 box and the thoughts log show its reasoning.
 
 ## What you can do

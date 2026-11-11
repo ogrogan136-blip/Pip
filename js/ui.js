@@ -215,10 +215,12 @@
     }
     // skills and ideas
     const b = game.brain, sk = [];
-    const label = n => n.startsWith('recipe:') ? 'make ' + RECIPES[n.slice(7)].label : { dig: '⛏️ dig in the sand', break: '💪 pull logs apart', craft: '🔨 build things' }[n];
+    const label = n => n.startsWith('recipe:') ? 'make ' + RECIPES[n.slice(7)].label : { dig: '⛏️ dig in the sand', break: '💪 pull logs apart', craft: '🔨 build things', plant: '🌱 plant seeds', tend: '💧 water seedlings' }[n];
     for (const n of Object.keys(b.skills)) { const s2 = b.skills[n]; if (label(n)) sk.push(`<span class="chip ${s2.hits ? 'good' : ''}" title="tried ${s2.n}×, worked ${s2.hits}×">${escapeHtml(label(n))}${s2.hits ? '' : ' · still practising'}</span>`); }
     for (const n of Object.keys(b.ideas)) if (!b.skills[n] && label(n)) sk.push(`<span class="chip" title="idea from ${escapeHtml(b.ideas[n])}">💡 ${escapeHtml(label(n))}?</span>`);
     if (b.tools.digger) sk.push('<span class="chip good">has a digging stick</span>');
+    const seeds = Object.entries(b.seeds || {}).filter(([t, n]) => n > 0 && TYPES[t]);
+    if (seeds.length) sk.push(`<span class="chip">seeds: ${seeds.map(([t, n]) => TYPES[t].emoji + '×' + n).join(' ')}</span>`);
     $('skills').innerHTML = sk.length ? sk.join('') : '<div class="empty">None yet. Ideas come with time, play and books.</div>';
     const seenCount = Object.keys(b.seen).length;
     if (seenCount !== lastSeenCount) { lastSeenCount = seenCount; buildPalette(); buildTypeSelect(); }

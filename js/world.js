@@ -55,6 +55,9 @@ const TYPES = {
   bone:     { emoji: '🦴', name: 'bone',       size: 12, hidden: true },
   nest:     { emoji: '🪹', name: 'nest',       size: 24, hidden: true },
   den:      { emoji: '⛺', name: 'den',        size: 26, hidden: true },
+  seedling: { emoji: '🌱', name: 'seedling',   size: 10, hidden: true },
+  plant:    { emoji: '🪴', name: 'food plant', size: 20, hidden: true },
+  cricketbox: { emoji: '📦', name: 'cricket box', size: 20, hidden: true },
   bookstore: { emoji: '📚', name: 'book shop', size: 40, building: true, words: ['bookshop', 'book', 'shop', 'store', 'library'] },
 };
 // 'ground' is a pseudo-object: Pip can nap wherever it is.
@@ -79,6 +82,9 @@ const EFFECTS = {
   ground:   { rest: { energy: 14 } },
   bookstore: { play: { fun: 8 }, rest: { energy: 10 }, eat: { fun: -4 } },
   stick:    { play: { fun: 9 }, eat: { fun: -3 } },
+  seedling: { eat: { fullness: 2 } },
+  plant:    { eat: { fullness: 4 }, rest: { energy: 8 }, play: { fun: 4 } },
+  cricketbox: { play: { fun: 5 } },
   crab:     { eat: { fullness: 30, fun: 4 }, play: { health: -5, fun: 5 } },
   shell:    { play: { fun: 12 }, drink: { hydration: 6 } },
   bone:     { play: { fun: 13 }, eat: { health: -4 } },
@@ -185,6 +191,24 @@ class World {
       o.t += dt;
       if (o.held) continue;
       const nearPip = lizard ? dist(o.x, o.y, lizard.x, lizard.y) : 999;
+      if (o.type === 'seedling') {
+        // grows on its own, three times faster while watered
+        o.age = (o.age || 0) + dt * ((o.water || 0) > 0 ? 3 : 1);
+        if (o.water > 0) o.water -= dt;
+        if (o.age >= 600) { o.type = 'plant'; o.produce = o.grows || 'berry'; o.timer = 0; this.addFx('sparkle', o.x, o.y); }
+        continue;
+      }
+      if (o.type === 'plant' || o.type === 'cricketbox') {
+        // a grown plant keeps making food; a cricket box keeps making crickets
+        const makes = o.type === 'plant' ? (TYPES[o.produce] ? o.produce : 'berry') : 'cricket';
+        o.timer = (o.timer || 0) + dt;
+        if (o.timer >= (o.type === 'plant' ? 200 : 260)) {
+          o.timer = 0;
+          const near = this.objects.filter(x => x.type === makes && dist(x.x, x.y, o.x, o.y) < 90).length;
+          if (near < 2) { const a = rand(0, Math.PI * 2); const n = this.add(makes, o.x + Math.cos(a) * 38, o.y + Math.sin(a) * 38); if (n) this.addFx('sparkle', n.x, n.y); }
+        }
+        continue;
+      }
       if (T.hops) {
         // crickets hop randomly, and away from Pip when it gets close
         const scared = nearPip < 70 && Math.random() < dt * 0.9;
@@ -208,14 +232,14 @@ class World {
     // Auto-feeder: keeps a little food around so Pip doesn't starve while you're away
     if (this.autoFeeder) {
       this.feederTimer += dt;
-      if (this.feederTimer > 25) {
+      if (this.feederTimer > 150) {
         this.feederTimer = 0;
-    this.fx = [];            // visual events for the renderer (splashes etc.), not saved
         // the keeper always makes sure there's a water dish
         if (!this.objects.some(o => o.type === 'water')) this.add('water', 780, 480);
         const foods = this.objects.filter(o => ['cricket', 'mealworm', 'lettuce', 'berry'].includes(o.type)).length;
-        if (foods < 3) {
-          const pick = ['cricket', 'cricket', 'mealworm', 'lettuce', 'berry'][Math.floor(Math.random() * 5)];
+        // food only turns up now and then; growing more is up to Pip
+        if (foods < 2) {
+          const pick = ['cricket', 'mealworm', 'lettuce', 'lettuce', 'berry', 'berry'][Math.floor(Math.random() * 6)];
           this.add(pick, rand(60, WORLD_W - 60), rand(60, WORLD_H - 60));
         }
       }
