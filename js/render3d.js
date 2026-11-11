@@ -101,10 +101,68 @@ function buildModel(type, o) {
       break;
     }
     case 'water': {
-      add(mesh(cyl(26, 22, 8, 28), mat('#8f99a3', { roughness: 0.4 }), 0, 4, 0));
-      const w = add(mesh(cyl(22, 22, 1, 28), mat('#3b9be0', { roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.9 }), 0, 8.4, 0));
-      w.castShadow = false;
-      g.userData.water = w;
+      // a stone well with a little roof and a crank
+      let sd = 5; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+      for (let ring = 0; ring < 3; ring++) for (let i = 0; i < 14; i++) {
+        const a = (i + ring * 0.5) / 14 * Math.PI * 2;
+        const st = mesh(new THREE.BoxGeometry(11, 6.4, 7), mat(['#9e978b', '#8a8378', '#b0a899'][(i + ring) % 3], { roughness: 0.95 }), Math.cos(a) * 21, 3.4 + ring * 6.6, Math.sin(a) * 21);
+        st.rotation.y = -a; st.scale.x = 0.9 + rr() * 0.2; g.add(st);
+      }
+      const w = add(mesh(cyl(17, 17, 1, 24), mat('#2f6f9e', { roughness: 0.1, metalness: 0.1 }), 0, 16, 0));
+      w.castShadow = false; g.userData.water = w;
+      add(mesh(cyl(18.5, 18.5, 1.5, 24), mat('#3c3c3c'), 0, 0.8, 0)).castShadow = false;
+      for (const s2 of [-1, 1]) add(mesh(new THREE.BoxGeometry(3.4, 46, 3.4), mat('#7a5230'), s2 * 22, 23 + 4, 0));
+      const roof = add(mesh(new THREE.ConeGeometry(33, 16, 4), mat('#8a3b2e', { roughness: 0.8, flatShading: true }), 0, 58, 0));
+      roof.rotation.y = Math.PI / 4; roof.scale.z = 0.6;
+      const axle = add(mesh(cyl(1.4, 1.4, 48, 8), mat('#5a3d22'), 0, 40, 0)); axle.rotation.z = Math.PI / 2;
+      add(mesh(cyl(0.3, 0.3, 18, 4), mat('#c9b37a'), 0, 31, 0));
+      const pail = add(mesh(cyl(3.4, 2.8, 5, 10), mat('#8a5a2b'), 0, 20, 0));
+      const crank = add(mesh(new THREE.BoxGeometry(2, 9, 2), mat('#5a3d22'), 25.5, 36, 0)); crank.rotation.z = 0.2;
+      g.userData.pail = pail;
+      break;
+    }
+    case 'bucket': {
+      add(mesh(cyl(7, 5.6, 11, 14, 1), mat('#9c6b35', { roughness: 0.85 }), 0, 5.5, 0));
+      for (const yy of [2.5, 8.5]) add(mesh(new THREE.TorusGeometry(yy > 5 ? 6.8 : 6, 0.45, 6, 18), mat('#6d6d6d', { metalness: 0.6, roughness: 0.4 }), 0, yy, 0)).rotation.x = Math.PI / 2;
+      add(mesh(new THREE.TorusGeometry(6.5, 0.35, 6, 16, Math.PI), mat('#6d6d6d', { metalness: 0.6 }), 0, 11, 0));
+      const fill = add(mesh(cyl(6.4, 6.4, 0.5, 14), mat('#3b9be0', { roughness: 0.1 }), 0, 9.8, 0));
+      fill.castShadow = false; g.userData.fill = fill;
+      break;
+    }
+    case 'hut': {
+      // a little log cabin, door facing the front
+      const logM = mat('#8a5a2b', { roughness: 0.9 }), endM = mat('#c9a06a');
+      for (let r = 0; r < 6; r++) {
+        const y = 4 + r * 7;
+        for (const z of [-26, 26]) { if (z > 0 && r < 4) { for (const x of [-26, 26]) { const l = add(mesh(cyl(3.6, 3.6, 34, 10), logM, x, y, z)); l.rotation.z = Math.PI / 2; } } else { const l = add(mesh(cyl(3.6, 3.6, 92, 10), logM, 0, y, z)); l.rotation.z = Math.PI / 2; } }
+        for (const x of [-42, 42]) { const l = add(mesh(cyl(3.6, 3.6, 60, 10), logM, x, y + 3.5, 0)); l.rotation.x = Math.PI / 2; }
+      }
+      add(mesh(new THREE.BoxGeometry(18, 28, 1), mat('#2a1d12'), 0, 14, 25)).castShadow = false;
+      const roofM = mat('#6b4627', { roughness: 0.9, flatShading: true });
+      for (const s2 of [-1, 1]) { const r = add(mesh(new THREE.BoxGeometry(100, 3, 40), roofM, 0, 53, s2 * 15)); r.rotation.x = s2 * 0.55; }
+      for (let i = 0; i < 9; i++) for (const s2 of [-1, 1]) { const st = add(mesh(cyl(0.8, 0.8, 40, 5), mat('#7a4f25'), -44 + i * 11, 55, s2 * 15)); st.rotation.x = Math.PI / 2 + s2 * 0.55; }
+      add(mesh(new THREE.BoxGeometry(8, 22, 8), mat('#8d877d', { flatShading: true }), 30, 60, -10));
+      break;
+    }
+    case 'bed': {
+      const wood = mat('#8a5a2b', { roughness: 0.85 });
+      for (const x of [-16, 16]) for (const z of [-9, 9]) add(mesh(cyl(1.4, 1.4, 8, 6), wood, x, 4, z));
+      for (const z of [-9, 9]) { const r = add(mesh(cyl(1.2, 1.2, 34, 6), wood, 0, 6, z)); r.rotation.z = Math.PI / 2; }
+      const mattress = add(mesh(new THREE.BoxGeometry(32, 4, 18), mat('#efe6d6', { roughness: 1 }), 0, 8.5, 0));
+      const blanket = add(mesh(new THREE.BoxGeometry(20, 1.4, 18.6), mat('#c0504d', { roughness: 1 }), 5, 10.8, 0));
+      const pillow = add(mesh(sphere(1, 12), mat('#fbfbf6', { roughness: 1 }), -12, 11.5, 0)); pillow.scale.set(4, 2, 7);
+      for (const x of [-18, 18]) add(mesh(new THREE.BoxGeometry(2, 10, 20), wood, x, 9, 0));
+      break;
+    }
+    case 'cotton': {
+      for (let q = 0; q < 5; q++) add(mesh(sphere(3.2, 10), mat('#fbfbf6', { roughness: 1 }), Math.cos(q * 1.257) * 2.6, 4 + (q % 2) * 1.5, Math.sin(q * 1.257) * 2.6));
+      add(mesh(new THREE.ConeGeometry(3, 2, 5), mat('#5a4a2a'), 0, 1, 0));
+      break;
+    }
+    case 'wool': {
+      add(mesh(sphere(7, 16), mat('#d9a0c8', { roughness: 1 }), 0, 7, 0));
+      for (let i = 0; i < 6; i++) { const t = add(mesh(new THREE.TorusGeometry(7.05, 0.45, 6, 24), mat('#c47fb0', { roughness: 1 }), 0, 7, 0)); t.rotation.set(i * 0.5, i * 0.9, 0); }
+      const tail = add(mesh(cyl(0.45, 0.45, 9, 5), mat('#c47fb0'), 8, 1.5, 3)); tail.rotation.z = 1.3;
       break;
     }
     case 'rock': {
@@ -601,7 +659,8 @@ class Renderer3D {
           m.userData.ball.rotateOnWorldAxis(axis, -sp / 60 / 13 * 2);
         }
       }
-      if (m.userData.water) m.userData.water.position.y = 8.4 + Math.sin(o.t * 2) * 0.2;
+      if (m.userData.water) m.userData.water.position.y = 16 + Math.sin(o.t * 2) * 0.2;
+      if (m.userData.fill) m.userData.fill.visible = (o.full || 0) > 0;
       if (m.userData.winMat) m.userData.winMat.emissiveIntensity = 0.25 + (1 - world.daylight) * 1.6 + (this.reading === o.id ? 0.8 : 0);
       if (m.userData.light) m.userData.light.intensity = 1.2 + (1 - world.daylight) * 1.2 + Math.sin(o.t * 13) * 0.03;
     }

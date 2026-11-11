@@ -88,6 +88,18 @@ const BOOKS = {
     ['Recipe: Cricket Box. Two sticks and a lettuce leaf make a home where crickets breed.', { idea: 'recipe:cricketbox' }],
     ['Flowers bring bugs, and bugs bring more bugs.'],
     ['Almost anything that grew from a seed can be planted. Experiment!'],
+    ['You can\'t carry water in your mouth. Make a bucket from two sticks, fill it at the well and carry it to your plants.', { ideas: ['carry', 'break', 'recipe:bucket'] }],
+  ] },
+  homes: { title: 'Cosy Homes', emoji: '🛖', pages: [
+    ['Every animal needs a safe place to sleep.'],
+    ['A log is an okay bed, but a real home is much better.'],
+    ['Recipe: Log Cabin. One log and three sticks make a snug little house.', { ideas: ['break', 'recipe:hut'] }],
+    ['Sleeping somewhere soft gives the deepest sleep of all.'],
+    ['Cotton plants grow fluffy white bolls. Here are some cotton seeds to try!', { ideas: ['plant'], seeds: ['cotton', 3] }],
+    ['Cotton grows in grass like other crops, and needs watering too.'],
+    ['Recipe: Wool. Spin two cotton bolls into a ball of wool.', { ideas: ['recipe:wool'] }],
+    ['Recipe: Comfy Bed. Weave wool over two sticks for the softest bed ever.', { ideas: ['recipe:bed'] }],
+    ['A cosy home makes every day better.'],
   ] },
   stars: { title: 'Stars & the Night', emoji: '⭐', pages: [
     ['Stars are giant balls of fire, very far away.'],
@@ -121,11 +133,11 @@ const READING_LEVELS = [
 function readingLevelName(lit) { let n = READING_LEVELS[0][1]; for (const [at, name] of READING_LEVELS) if (lit >= at) n = name; return n; }
 
 // Which book helps with which need, and which experiences spark which interests.
-const NEED_BOOKS = { eat: ['garden', 'bugs', 'cooking', 'plants'], drink: ['water'], bask: ['sun', 'lizards'], rest: ['lizards', 'feelings'], play: ['feelings'] };
+const NEED_BOOKS = { eat: ['garden', 'bugs', 'cooking', 'plants'], drink: ['water'], bask: ['sun', 'lizards'], rest: ['homes', 'lizards', 'feelings'], play: ['feelings'] };
 const SPARKS = {
   'cricket:eat': 'bugs', 'mealworm:eat': 'bugs', 'ladybug:eat': 'bugs', 'crab:eat': 'bugs', 'crab:play': 'bugs', 'cricket:play': 'bugs',
   'lettuce:eat': 'garden', 'berry:eat': 'garden', 'plant': 'garden', 'seedling': 'garden', 'flower:eat': 'plants', 'mushroom:eat': 'plants', 'cactus': 'plants',
-  'water': 'water', 'lamp': 'sun', 'rock': 'rocks', 'log': 'building', 'stick': 'building', 'ball': 'feelings',
+  'water': 'water', 'lamp': 'sun', 'rock': 'rocks', 'log:rest': 'homes', 'ground:rest': 'homes', 'log': 'building', 'hut': 'homes', 'bed': 'homes', 'cotton': 'homes', 'stick': 'building', 'ball': 'feelings',
 };
 
 // Mixed into Brain
@@ -164,6 +176,8 @@ const Reading = {
     (r.read[k] || (r.read[k] = [])).push(i);
     if (fx && fx.learn && TYPES[fx.learn[0]]) this.learnFromBook(fx.learn[0], fx.learn[1], truthOf(fx.learn[0], fx.learn[1]));
     if (fx && fx.idea) this.addIdea(fx.idea, 'a book');
+    if (fx && fx.ideas) fx.ideas.forEach(i => this.addIdea(i, 'a book'));
+    if (fx && fx.seeds) this.seeds[fx.seeds[0]] = Math.min(9, (this.seeds[fx.seeds[0]] || 0) + fx.seeds[1]);
     this.stats.books = (this.stats.books || 0) + 1;
     return text;
   },
@@ -174,11 +188,11 @@ const Reading = {
     if (!unread.length) return 'I\'ve read every single book in here! I could read my favourites again. 📚';
     // Seeds keep dying? Look up how gardening works.
     if (q && q.kind === 'garden') {
-      const bk = books.garden, i = bk.pages.findIndex((pg, idx) => pg[1] && pg[1].idea === q.idea && !(r.read.garden || []).includes(idx));
+      const bk = books.garden, i = bk.pages.findIndex((pg, idx) => pg[1] && (pg[1].idea === q.idea || (pg[1].ideas || []).includes(q.idea)) && !(r.read.garden || []).includes(idx));
       if (i >= 0) {
         const text = this.readPage('garden', i);
         r.literacy = Math.min(30, r.literacy + 0.5);
-        return `I looked up why my seeds keep dying, in "${bk.title}" ${bk.emoji}: ${text} So THAT's what I was doing wrong! 📖`;
+        return q.idea === 'recipe:bucket' ? `I looked up how to water plants, in "${bk.title}" ${bk.emoji}: ${text} A bucket! Of course! 📖` : `I looked up why my seeds keep dying, in "${bk.title}" ${bk.emoji}: ${text} So THAT's what I was doing wrong! 📖`;
       }
     }
     // Something urgent? Look it up in the index and go straight to that page.

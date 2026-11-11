@@ -41,7 +41,7 @@ const TYPES = {
   berry:    { emoji: '🍓', name: 'berry',      size: 12, food: true },
   mushroom: { emoji: '🍄', name: 'mushroom',   size: 14, food: true },
   ladybug:  { emoji: '🐞', name: 'ladybug',    size: 11, food: true, crawls: true },
-  water:    { emoji: '💧', name: 'water dish', size: 22, words: ['water', 'dish'] },
+  water:    { emoji: '⛲', name: 'well', size: 24, words: ['well', 'water', 'dish'] },
   rock:     { emoji: '🪨', name: 'rock',       size: 24 },
   lamp:     { emoji: '💡', name: 'heat lamp',  size: 18, heat: 140, words: ['lamp', 'heat', 'light'] },
   log:      { emoji: '🪵', name: 'log',        size: 26, words: ['log', 'wood'] },
@@ -59,7 +59,12 @@ const TYPES = {
   seedling: { emoji: '🌱', name: 'seedling',   size: 10, hidden: true },
   plant:    { emoji: '🪴', name: 'food plant', size: 20, hidden: true },
   cricketbox: { emoji: '📦', name: 'cricket box', size: 20, hidden: true },
-  bookstore: { emoji: '📚', name: 'book shop', size: 40, building: true, words: ['bookshop', 'book', 'shop', 'store', 'library'] },
+  bucket:   { emoji: '🪣', name: 'bucket', size: 12, hidden: true },
+  hut:      { emoji: '🛖', name: 'log cabin', size: 40, building: true, hidden: true, words: ['cabin', 'hut', 'house', 'home'] },
+  bed:      { emoji: '🛏️', name: 'comfy bed', size: 20, hidden: true, words: ['bed'] },
+  cotton:   { emoji: '☁️', name: 'cotton boll', size: 10, hidden: true },
+  wool:     { emoji: '🧶', name: 'ball of wool', size: 11, hidden: true },
+  bookstore: { emoji: '📚', name: 'book shop', size: 40, building: true, library: true, words: ['bookshop', 'book', 'shop', 'store', 'library'] },
 };
 // 'ground' is a pseudo-object: Pip can nap wherever it is.
 const GROUND = { emoji: '🟫', name: 'ground', size: 0 };
@@ -77,12 +82,17 @@ const EFFECTS = {
   water:    { drink: { hydration: 45 }, play: { fun: 16, warmth: -5, hydration: 4 }, bask: { warmth: -10, fun: 3 } },
   rock:     { eat: { health: -8, fun: -4 }, bask: { warmth: 8 }, rest: { energy: 10 }, play: { fun: 7, energy: -3 } },
   lamp:     { bask: { warmth: 22 }, rest: { energy: 8 } },
-  log:      { rest: { energy: 35 }, play: { fun: 9, energy: -3 }, bask: { warmth: 3 } },
+  log:      { rest: { energy: 18 }, play: { fun: 9, energy: -3 }, bask: { warmth: 3 } },
   ball:     { play: { fun: 32, energy: -6 } },
   cactus:   { eat: { health: -18, fun: -8 }, play: { health: -12 }, rest: { health: -10 }, bask: { health: -8 }, drink: { health: -6 } },
-  ground:   { rest: { energy: 14 } },
+  ground:   { rest: { energy: 7 } },
   bookstore: { play: { fun: 8 }, rest: { energy: 10 }, eat: { fun: -4 } },
   stick:    { play: { fun: 9 }, eat: { fun: -3 } },
+  bucket:   { play: { fun: 3 } },
+  hut:      { rest: { energy: 48, warmth: 6, fun: 3 }, play: { fun: 4 } },
+  bed:      { rest: { energy: 75, fun: 8 }, play: { fun: 5 } },
+  cotton:   { play: { fun: 6 }, eat: { fun: -3 } },
+  wool:     { play: { fun: 14 } },
   grass:    { rest: { energy: 12, fun: 2 }, play: { fun: 5 }, eat: { fullness: 2 } },
   seedling: { eat: { fullness: 2 } },
   plant:    { eat: { fullness: 4 }, rest: { energy: 8 }, play: { fun: 4 } },
@@ -256,6 +266,9 @@ class World {
       this.feederTimer += dt;
       if (this.feederTimer > 150) {
         this.feederTimer = 0;
+        // logs slowly get new loose bark, and a fallen log turns up now and then if there are none
+        for (const lg of this.objects) if (lg.type === 'log' && lg.breaks > 0 && this.time - (lg.lastBreak || 0) > 600) { lg.breaks--; lg.lastBreak = this.time; }
+        if (!this.objects.some(o => o.type === 'log') && Math.random() < 0.25) this.add('log', rand(620, 900), rand(80, 200));
         // the keeper always makes sure there's a water dish
         if (!this.objects.some(o => o.type === 'water')) this.add('water', 780, 480);
         const foods = this.objects.filter(o => ['cricket', 'mealworm', 'lettuce', 'berry'].includes(o.type)).length;
@@ -285,6 +298,7 @@ class World {
   }
   // Pulling a log apart gives sticks, until there's nothing loose left.
   breakOff(obj) {
+    obj.lastBreak = this.time;
     if ((obj.breaks || 0) >= 3) return 0;
     obj.breaks = (obj.breaks || 0) + 1;
     this.addFx('chips', obj.x, obj.y);
@@ -301,8 +315,12 @@ class World {
       const near = this.objects.filter(o => o.type === t).sort((a, b) => dist(a.x, a.y, x, y) - dist(b.x, b.y, x, y)).slice(0, n);
       near.forEach(o => this.remove(o.id));
     }
+    // a cabin goes on the sand at the top right; a bed goes beside the cabin
+    if (R.makes === 'hut') { x = 790; y = 270; }
+    const hut = this.objects.find(o => o.type === 'hut');
+    if (R.makes === 'bed' && hut) { x = hut.x - 78; y = hut.y + 14; }
     this.addFx('chips', x, y);
-    if (R.makes) this.add(R.makes, x, y);
+    if (R.makes) { const o = this.add(R.makes, x, y); if (o) this.addFx('sparkle', o.x, o.y); }
     return true;
   }
 
@@ -355,6 +373,10 @@ class World {
 
 // Things that can be built, once Pip works out how.
 const RECIPES = {
+  bucket: { needs: { stick: 2 }, makes: 'bucket', label: 'a bucket' },
+  hut:    { needs: { log: 1, stick: 3 }, makes: 'hut', label: 'a little log cabin' },
+  wool:   { needs: { cotton: 2 }, makes: 'wool', label: 'a ball of wool' },
+  bed:    { needs: { wool: 1, stick: 2 }, makes: 'bed', label: 'a comfy bed' },
   nest:   { needs: { stick: 3 }, makes: 'nest', label: 'a nest out of sticks' },
   digger: { needs: { stick: 1 }, makes: null, tool: 'digger', label: 'a digging stick' },
   den:    { needs: { stick: 2, lettuce: 1 }, makes: 'den', label: 'a den from sticks and leaves' },

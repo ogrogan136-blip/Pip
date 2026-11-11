@@ -162,7 +162,7 @@ class Brain {
     if (stickPlay && stickPlay.n >= 2 && this.addIdea('craft', 'playing')) return 'These sticks stack up nicely. Maybe I could build something? 🤔';
     if (this.hasIdea('craft') && this.skills.craft && Math.random() < 0.15) {
       for (const r of Object.keys(RECIPES)) {
-        if (!this.hasIdea('recipe:' + r) && world.hasMaterials(r)) { this.addIdea('recipe:' + r, 'thinking'); return `What if I made ${RECIPES[r].label}? 🤔`; }
+        if (['nest', 'digger', 'den', 'hut'].includes(r) && !this.hasIdea('recipe:' + r) && world.hasMaterials(r)) { this.addIdea('recipe:' + r, 'thinking'); return `What if I made ${RECIPES[r].label}? 🤔`; }
       }
     }
     return null;
@@ -197,19 +197,29 @@ class Brain {
     if (this.hasIdea('tend')) {
       const w = lizard.worldRef;
       const dry = mem.filter(m => m.type === 'seedling' && w && w.get(m.id) && !(w.get(m.id).water > 0)).sort((a, b) => (w.get(b.id).thirst || 0) - (w.get(a.id).thirst || 0))[0];
-      if (dry) push({ verb: 'tend', type: 'seedling', objId: dry.id, x: dry.x, y: dry.y }, (0.45 + Math.min(0.6, (w.get(dry.id).thirst || 0) / 300)) * busyWithNeeds);
+      if (dry) {
+        const urgency = (0.45 + Math.min(0.6, (w.get(dry.id).thirst || 0) / 300)) * busyWithNeeds;
+        // watering means carrying water from the well: bucket → well → plant
+        const bucket = w.objects.find(o => o.type === 'bucket'), well = w.objects.find(o => o.type === 'water');
+        const holding = bucket && lizard.carrying === bucket.id;
+        if (!this.hasIdea('carry') || !bucket || !well) { if (!this.hasIdea('carry')) push({ verb: 'tend', type: 'seedling', objId: dry.id, x: dry.x, y: dry.y }, urgency); }
+        else if (!holding) push({ verb: 'grab', type: 'bucket', objId: bucket.id, x: bucket.x, y: bucket.y }, urgency);
+        else if (!(bucket.full > 0)) push({ verb: 'fill', type: 'water', objId: well.id, x: well.x, y: well.y }, urgency);
+        else push({ verb: 'tend', type: 'seedling', objId: dry.id, x: dry.x, y: dry.y }, urgency + 0.2);
+      }
     }
     if (this.hasIdea('break')) {
       const s = this.skills.break || { n: 0, hits: 0 };
-      const log = mem.find(m => m.type === 'log' && !this.spent[m.id]);
-      const wantSticks = this.hasIdea('craft') && count('stick') < 3;
+      const log = mem.find(m => m.type === 'log' && lizard.worldRef && lizard.worldRef.get(m.id) && (lizard.worldRef.get(m.id).breaks || 0) < 3);
+      const wantSticks = (this.hasIdea('craft') || ['bucket', 'hut', 'bed'].some(r => this.hasIdea('recipe:' + r))) && count('stick') < 3;
       if (log) push({ verb: 'break', type: 'log', objId: log.id, x: log.x, y: log.y }, (s.hits < 1 ? 0.75 * ready : 0.04) + (wantSticks ? 0.6 : 0));
     }
     {
       for (const [r, R] of Object.entries(RECIPES)) {
         if (!this.hasIdea('recipe:' + r)) continue;
         if (!Object.entries(R.needs).every(([t, n]) => count(t) >= n)) continue;
-        const want = R.tool ? !this.tools[R.tool] && this.hasIdea('dig') : R.farm ? count(R.makes) === 0 : R.food ? count(R.makes) === 0 && needs.fullness < 75 : count(R.makes) === 0;
+        const world = lizard.worldRef, exists = t => world ? world.objects.some(o => o.type === t) : count(t) > 0;
+        const want = r === 'bucket' ? !exists('bucket') : r === 'hut' ? !exists('hut') : r === 'bed' ? !exists('bed') : r === 'wool' ? !exists('wool') && !exists('bed') && this.hasIdea('recipe:bed') : R.tool ? !this.tools[R.tool] && this.hasIdea('dig') : R.farm ? count(R.makes) === 0 : R.food ? count(R.makes) === 0 && needs.fullness < 75 : count(R.makes) === 0;
         if (!want) continue;
         const first = mem.find(m => m.type === Object.keys(R.needs)[0]);
         push({ verb: 'craft', type: R.makes || 'stick', recipe: r, objId: first.id, x: first.x, y: first.y }, 0.85);
@@ -232,6 +242,7 @@ class Brain {
   // What is on Pip's mind that a book could answer?
   question(lizard, task, desperateFor) {
     if (this.garden && this.garden.wonderSoil && !this.hasIdea('grass')) return { kind: 'garden', idea: 'grass', val: 0.9 };
+    if (this.garden && this.garden.needBucket && !this.hasIdea('recipe:bucket')) return { kind: 'garden', idea: 'recipe:bucket', val: 0.9 };
     if (task && task.auto && task.words.some(w => { const m = this.meaning(w); return !m || !m.type; })) return { kind: 'word', val: 1.3 };
     for (const [verb, val] of Object.entries(desperateFor)) {
       // only worth looking up if Pip has no idea at all what helps (otherwise: go and find it)
@@ -470,7 +481,7 @@ class Brain {
     };
 
     for (const mem of lizard.memory.values()) {
-      if (TYPES[mem.type] && TYPES[mem.type].building) {
+      if (TYPES[mem.type] && TYPES[mem.type].library) {
         // The book shop: somewhere to go when Pip has a question on its mind.
         const q = this.question(lizard, task, desperateFor);
         consider(mem, mem.type, 'read');
@@ -549,7 +560,9 @@ class Brain {
       const s = this.skills[c.verb === 'craft' ? 'recipe:' + c.recipe : c.verb];
       if (c.verb === 'dig') return !s || !s.n ? 'Let me try scratching at the sand here…' : pick(['Maybe there\'s something buried here.', 'Time to dig.', 'I\'ll try digging over there.']);
       if (c.verb === 'plant') return !s || !s.hits ? `Let me try planting this ${TYPES[c.type].emoji} seed…` : pick([`I'll plant a ${TYPES[c.type].emoji} seed in my garden.`, 'Time to grow some more food.']);
-      if (c.verb === 'tend') return pick(['My seedling looks thirsty. I\'ll water it. 💧', 'Let me look after my little plant.']);
+      if (c.verb === 'tend') return this.hasIdea('carry') ? 'Time to water my plants. 🪣💧' : pick(['My seedling looks thirsty. I\'ll water it. 💧', 'Let me look after my little plant.']);
+      if (c.verb === 'grab') return 'I\'ll grab my bucket. 🪣';
+      if (c.verb === 'fill') return 'Off to the well to fill my bucket. ⛲';
       if (c.verb === 'break') return !s || !s.hits ? 'Let me see if I can pull a bit off this log…' : 'I need more sticks. Back to the log.';
       return !s || !s.hits ? `Let me try to make ${RECIPES[c.recipe].label}…` : `I'll make ${RECIPES[c.recipe].label}.`;
     }
@@ -667,7 +680,7 @@ class Brain {
 
 const INSTINCT = { fullness: 'eat', hydration: 'drink', warmth: 'bask', energy: 'rest' };
 // what looks drinkable / edible / warm / comfy to a lizard, before it knows for sure
-const LOOKS_LIKE = { drink: ['water'], eat: ['cricket', 'mealworm', 'lettuce', 'berry', 'crab', 'salad', 'wrap', 'skewer'], bask: ['lamp', 'rock'], rest: ['log', 'nest', 'den'] };
+const LOOKS_LIKE = { drink: ['water'], eat: ['cricket', 'mealworm', 'lettuce', 'berry', 'crab', 'salad', 'wrap', 'skewer'], bask: ['lamp', 'rock'], rest: ['log', 'nest', 'den', 'hut', 'bed'] };
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 

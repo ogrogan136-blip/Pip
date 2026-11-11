@@ -103,6 +103,19 @@ function buildCrop(kind, g, opts = {}) {
         if (ripe > 0.6) for (let q = 0; q < 5; q++) grp.add(mesh(sphere(0.22, 4), mat('#f6d55c'), bx + Math.cos(q * 1.3) * 1.7 * sz, by + (1 + q % 2) * sz, bz + Math.sin(q * 1.3) * 1.7 * sz));
       }
     }
+  } else if (kind === 'cotton') {
+    // a bushy, woody stalk with broad leaves; green bolls burst open into white fluff
+    const h = 6 + 20 * g;
+    grp.add(mesh(cyl(0.6, 1, h, 6), mat(fade('#6b5a3a')), 0, y0 + h / 2, 0));
+    const n = Math.round(3 + g * 7);
+    for (let i = 0; i < n; i++) { const t = i / n, l = leafMesh(4 + 4 * g, 4 + 3.5 * g, fade(lerpColor('#2f6b2a', '#5d9a3a', t)), 0.05, i + 3); l.position.set(0, y0 + h * (0.25 + 0.7 * t), 0); l.rotation.set(0, i * 2.39996, 0.25 - droop * 0.8); grp.add(l); }
+    const bolls = opts.mature ? 5 : g > 0.7 ? Math.round((g - 0.7) * 10) : 0;
+    const open = opts.mature ? (opts.ripe || 0) : 0;
+    for (let i = 0; i < bolls; i++) {
+      const a = i * 2.39996, bx = Math.cos(a) * (3 + 2 * (i % 2)), bz = Math.sin(a) * (3 + 2 * (i % 2)), by = y0 + h * (0.55 + 0.4 * (i / Math.max(1, bolls)));
+      if (open < 0.5) { const pod = mesh(sphere(1.6 + 1.2 * open, 8), mat('#7a9a3a'), bx, by, bz); pod.scale.y = 1.3; grp.add(pod); }
+      else { const fl = 1.4 + 1.6 * open; for (let q = 0; q < 4; q++) grp.add(mesh(sphere(fl, 8), mat('#fbfbf6', { roughness: 0.95 }), bx + Math.cos(q * 1.57) * fl * 0.6, by + (q % 2) * fl * 0.4, bz + Math.sin(q * 1.57) * fl * 0.6)); grp.add(mesh(new THREE.ConeGeometry(1.4, 1.2, 5), mat('#5a4a2a'), bx, by - fl * 0.8, bz)); }
+    }
   } else if (kind === 'flower') {
     const stems = opts.mature ? 3 : 1;
     for (let s = 0; s < stems; s++) {
@@ -130,7 +143,7 @@ function buildCrop(kind, g, opts = {}) {
   return grp;
 }
 
-function cropKind(type) { return ['lettuce', 'berry', 'flower'].includes(type) ? type : 'generic'; }
+function cropKind(type) { return ['lettuce', 'berry', 'flower', 'cotton'].includes(type) ? type : 'generic'; }
 
 // What a growing thing looks like right now (used to decide when to rebuild its model).
 function cropState(o) {

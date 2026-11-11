@@ -226,13 +226,14 @@ class Lizard {
     this.state = 'acting';
     this.speed = 0;
     this.actObj = obj;
-    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13, plant: 7, tend: 5 }[plan.verb] || 4;
+    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4 }[plan.verb] || 4;
     this.longSleep = plan.verb === 'rest' && this.needs.energy < 40;
     if (this.longSleep) this.timer = 26; // a proper sleep
     this.inside = !!(obj && TYPES[obj.type].building && ['read', 'play', 'rest'].includes(plan.verb));
     if (obj) { this.heading = Math.atan2(obj.y - this.y, obj.x - this.x); obj.held = !TYPES[obj.type].building; }
     // small things get picked up and used in Pip's mouth
-    if (obj && plan.verb === 'play' && this.canCarry(obj)) this.pickUp(obj);
+    if (plan.verb === 'rest') { this.keepCarry = false; this.drop(this.worldRef); } // put things down before sleeping
+    if (obj && plan.verb === 'play' && this.canCarry(obj) && !this.keepCarry) this.pickUp(obj);
   }
 
   finishAction(world, brain, task) {
@@ -240,7 +241,7 @@ class Lizard {
     const obj = this.actObj && world.get(this.actObj.id);
     this.inside = false;
     if (obj) obj.held = false;
-    this.drop(world);
+    if (!this.keepCarry) this.drop(world);
     if (p.kind === 'skill') return this.finishSkill(world, brain, obj);
     if (p.type !== 'ground' && !obj) { this.state = 'deciding'; return; }
     let delta, r;
@@ -257,7 +258,8 @@ class Lizard {
       brain.satisfyCuriosity(world.time);
     } else {
       delta = world.interact(this, obj, p.verb);
-      if (p.verb === 'rest' && this.longSleep) { const extra = 20; this.needs.energy = clamp(this.needs.energy + extra, 0, 100); }
+      // a long sleep restores more in a better bed
+      if (p.verb === 'rest' && this.longSleep) { const base = ((EFFECTS[p.type] || {}).rest || {}).energy || 0; this.needs.energy = clamp(this.needs.energy + Math.round(base * 0.5), 0, 100); }
       const first = brain.learnEffect(p.type, p.verb, delta);
       r = brain.reactionFor(p.type, p.verb, delta, first);
       if (p.verb === 'eat' && brain.keepSeed(p.type)) r.text += ' I kept a seed. 🌱';
@@ -287,7 +289,8 @@ class Lizard {
   }
   // put it down where Pip is: next time Pip wants it, it has to come back for it
   drop(world) {
-    if (!this.carrying) return;
+    this.keepCarry = false;
+    if (!this.carrying || !world) return;
     const o = world.get(this.carrying);
     if (o) { o.held = false; o.carried = false; o.lift = 0; o.swing = 0; o.x = clamp(this.x + Math.cos(this.heading) * 20, 15, WORLD_W - 15); o.y = clamp(this.y + Math.sin(this.heading) * 20, 15, WORLD_H - 15); }
     this.carrying = null;
@@ -361,12 +364,35 @@ class Lizard {
         s.hits++; mood = 'happy';
         text = s.hits === 1 ? `I planted a ${TYPES[p.type].emoji} seed! Now I just have to wait for it to grow. 🌱` : o && o.onGrass ? `Planted a ${TYPES[p.type].emoji} seed in the grass. Grow, little seed!` : `Planted another ${TYPES[p.type].emoji} seed.`;
       }
+    } else if (p.verb === 'grab') {
+      if (obj) { this.pickUp(obj); this.keepCarry = true; text = 'Got my bucket. 🪣'; mood = 'happy'; }
+      else text = 'Where did my bucket go?';
+    } else if (p.verb === 'fill') {
+      const b = this.carrying && world.get(this.carrying);
+      if (b && b.type === 'bucket') { b.full = 3; world.addFx('ripple', obj ? obj.x : this.x, obj ? obj.y : this.y); text = 'Filled my bucket at the well. 🪣💧'; mood = 'happy'; }
+      else text = 'I need my bucket to carry the water.';
     } else if (p.verb === 'tend') {
       const s = brain.skill('tend');
-      s.n++; s.hits++;
-      if (obj) { obj.water = 150; world.addFx('ripple', obj.x, obj.y); }
-      text = obj ? 'There you go, little plant. Grow big! 💧🌱' : 'Hm, where did my seedling go?';
-      mood = obj ? 'happy' : 'meh';
+      s.n++;
+      const b = this.carrying && world.get(this.carrying);
+      if (!obj) { text = 'Hm, where did my seedling go?'; mood = 'meh'; }
+      else if (!b || b.type !== 'bucket' || !(b.full > 0)) {
+        // nothing to water it with!
+        const g = brain.garden || (brain.garden = { sandFails: 0, dryFails: 0 });
+        g.waterTries = (g.waterTries || 0) + 1;
+        if (brain.addIdea('carry', 'experience')) text = 'I licked the seedling but it\'s still dry… I can\'t carry water in my mouth. I need something to carry it in. 🤔';
+        else text = 'I\'ve got no water to give it. I need a bucket from the well.';
+        if (!brain.hasIdea('recipe:bucket')) { g.needBucket = true; brain.spark('garden', 0.2); }
+        mood = 'meh';
+      } else {
+        s.hits++; b.full--;
+        obj.water = 150; world.addFx('splash', obj.x, obj.y);
+        text = b.full > 0 ? 'There you go, little plant. Grow big! 💧🌱' : 'There you go! My bucket is empty now.';
+        mood = 'happy';
+        // nothing else thirsty? put the bucket down by the farm
+        const others = world.objects.some(o => o.type === 'seedling' && o.id !== obj.id && !(o.water > 0));
+        if (!others || !(b.full > 0)) { if (!others) { this.keepCarry = false; this.drop(world); } }
+      }
     } else if (p.verb === 'craft') {
       const R = RECIPES[p.recipe], s = brain.skill('recipe:' + p.recipe);
       brain.skill('craft').n++;
@@ -377,6 +403,10 @@ class Lizard {
       else {
         s.hits++; brain.skill('craft').hits++; mood = 'happy';
         if (R.tool) brain.tools[R.tool] = true;
+        if (p.recipe === 'wool') brain.seeds.cotton = (brain.seeds.cotton || 0) + 1;
+        // Pip knows what it built a home or bed for
+        if (['hut', 'bed', 'nest', 'den'].includes(R.makes)) brain.learnFromBook(R.makes, 'rest', truthOf(R.makes, 'rest'));
+        if (R.makes === 'hut') brain.spark('homes', 0.5); // a home of my own! now to make it cosy…
         this.needs.fun = clamp(this.needs.fun + 12, 0, 100);
         text = `I did it! I made ${R.label}! ${s.hits === 1 ? 'All by myself! 🤩' : ''}`;
       }
