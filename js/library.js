@@ -93,7 +93,7 @@ const BOOKS = {
   homes: { title: 'Cosy Homes', emoji: '🛖', pages: [
     ['Every animal needs a safe place to sleep.'],
     ['A log is an okay bed, but a real home is much better.'],
-    ['Recipe: Log Cabin. One log and three sticks make a snug little house.', { ideas: ['break', 'recipe:hut'] }],
+    ['Lizards love burrows! Pile up sand, prop the tunnel with three sticks and a log, and you\'ve got a cosy, dry burrow.', { ideas: ['break', 'recipe:hut'] }],
     ['Sleeping somewhere soft gives the deepest sleep of all.'],
     ['Cotton plants grow fluffy white bolls. Here are some cotton seeds to try!', { ideas: ['plant'], seeds: ['cotton', 3] }],
     ['Cotton grows in grass like other crops, and needs watering too.'],

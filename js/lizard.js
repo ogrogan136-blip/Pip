@@ -440,7 +440,7 @@ class Lizard {
         if (p.recipe === 'wool') brain.seeds.cotton = (brain.seeds.cotton || 0) + 1;
         // Pip knows what it built a home or bed for
         if (['hut', 'bed', 'nest', 'den'].includes(R.makes)) brain.learnFromBook(R.makes, 'rest', truthOf(R.makes, 'rest'));
-        if (R.makes === 'hut') brain.spark('homes', 0.5); // a home of my own! now to make it cosy…
+        if (R.makes === 'hut') brain.spark('homes', 0.5); // a burrow of my own! now to make it cosy…
         this.needs.fun = clamp(this.needs.fun + 12, 0, 100);
         text = `I did it! I made ${R.label}! ${s.hits === 1 ? 'All by myself! 🤩' : ''}`;
       }

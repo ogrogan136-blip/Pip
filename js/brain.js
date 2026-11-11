@@ -185,7 +185,7 @@ class Brain {
     const n = lizard.needs, g = this.garden || {}, has = t => world.objects.some(o => o.type === t);
     switch (r) {
       case 'nest': case 'den': return n.energy < 70 ? `These sticks… I could make ${RECIPES[r].label} to sleep in! 🤔` : null;
-      case 'hut': return n.energy < 75 || (this.known('log', 'rest') && this.known('log', 'rest').n >= 2) ? 'Sleeping on a log isn\'t very comfy. What if I built a little house out of a log and sticks? 🤔' : null;
+      case 'hut': return n.energy < 75 || (this.known('log', 'rest') && this.known('log', 'rest').n >= 2) ? 'Sleeping on a log isn\'t very comfy. Real lizards sleep in burrows… What if I dug one, and held it up with a log and sticks? 🤔' : null;
       case 'digger': return this.hasIdea('dig') ? 'A pointy stick might help me dig! 🤔' : null;
       case 'bucket': return this.hasIdea('carry') || g.needBucket ? 'I need something to carry water in… What if I made a bucket out of sticks? 🤔' : null;
       case 'salad': return n.fullness < 75 ? 'Lettuce and berries… what if I mixed them together? Might be tastier! 🤔' : null;

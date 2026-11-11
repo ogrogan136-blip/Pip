@@ -64,7 +64,7 @@ const TYPES = {
   stove:    { emoji: '🔥', name: 'stone stove', size: 22, heat: 210, heatPower: 80, hidden: true, words: ['stove', 'fire', 'heater'] },
   umbrella: { emoji: '☂️', name: 'leaf umbrella', size: 14, hidden: true, words: ['umbrella', 'leaf'] },
   sweater:  { emoji: '🧥', name: 'woolly sweater', size: 12, hidden: true, words: ['sweater', 'jumper', 'clothes', 'coat'] },
-  hut:      { emoji: '🛖', name: 'log cabin', size: 40, building: true, hidden: true, words: ['cabin', 'hut', 'house', 'home'] },
+  hut:      { emoji: '🪨', name: 'cosy burrow', size: 40, building: true, hidden: true, words: ['burrow', 'den', 'cave', 'hole', 'home', 'house', 'cabin', 'hut'] },
   bed:      { emoji: '🛏️', name: 'comfy bed', size: 20, hidden: true, words: ['bed'] },
   cotton:   { emoji: '☁️', name: 'cotton boll', size: 10, hidden: true },
   wool:     { emoji: '🧶', name: 'ball of wool', size: 11, hidden: true },
@@ -333,7 +333,7 @@ class World {
       const near = this.objects.filter(o => o.type === t).sort((a, b) => dist(a.x, a.y, x, y) - dist(b.x, b.y, x, y)).slice(0, n);
       near.forEach(o => this.remove(o.id));
     }
-    // a cabin goes on the sand at the top right; a bed goes beside the cabin
+    // a burrow goes in the sand at the top right; a bed goes beside it
     if (R.makes === 'hut') { x = 790; y = 270; }
     const hut = this.objects.find(o => o.type === 'hut');
     if (R.makes === 'bed' && hut) { x = hut.x - 78; y = hut.y + 14; }
@@ -407,7 +407,7 @@ const RECIPES = {
   stove:   { needs: { rock: 1, stick: 2 }, makes: 'stove', label: 'a stone stove' },
   sweater: { needs: { wool: 1 }, makes: 'sweater', label: 'a woolly sweater' },
   bucket: { needs: { stick: 2 }, makes: 'bucket', label: 'a bucket' },
-  hut:    { needs: { log: 1, stick: 3 }, makes: 'hut', label: 'a little log cabin' },
+  hut:    { needs: { log: 1, stick: 3 }, makes: 'hut', label: 'a cosy burrow' },
   wool:   { needs: { cotton: 2 }, makes: 'wool', label: 'a ball of wool' },
   bed:    { needs: { wool: 1, stick: 2 }, makes: 'bed', label: 'a comfy bed' },
   nest:   { needs: { stick: 3 }, makes: 'nest', label: 'a nest out of sticks' },

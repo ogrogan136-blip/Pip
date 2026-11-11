@@ -137,7 +137,7 @@ const Talk = {
     }
     if (L.needs.energy < 50 && !this.world.objects.some(o => o.type === 'hut' || o.type === 'bed') && !b.hasIdea('recipe:hut') && !b.asked?.hut && b.known('log', 'rest')) {
       (b.asked = b.asked || {}).hut = 1;
-      return this.ask({ kind: 'help', text: 'Sleeping on logs and sand isn\'t very comfy. Any ideas for a better place to sleep?', options: [{ label: '🛖 Build a cabin from a log and sticks', act: 'idea', idea: 'recipe:hut', also: ['break', 'craft'] }, { label: '🪺 Make a nest from sticks', act: 'idea', idea: 'recipe:nest', also: ['break', 'craft'] }] });
+      return this.ask({ kind: 'help', text: 'Sleeping on logs and sand isn\'t very comfy. Any ideas for a better place to sleep?', options: [{ label: '🪨 Dig a burrow, propped up with a log and sticks', act: 'idea', idea: 'recipe:hut', also: ['break', 'craft'] }, { label: '🪺 Make a nest from sticks', act: 'idea', idea: 'recipe:nest', also: ['break', 'craft'] }] });
     }
     // soaked
     if (L.wet > 60 && !b.hasIdea('shelter') && !b.hasIdea('recipe:umbrella') && !b.asked?.rain) {

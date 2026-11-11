@@ -173,18 +173,30 @@ function buildModel(type, o) {
       break;
     }
     case 'hut': {
-      // a little log cabin, door facing the front
-      const logM = mat('#8a5a2b', { roughness: 0.9 }), endM = mat('#c9a06a');
-      for (let r = 0; r < 6; r++) {
-        const y = 4 + r * 7;
-        for (const z of [-26, 26]) { if (z > 0 && r < 4) { for (const x of [-26, 26]) { const l = add(mesh(cyl(3.6, 3.6, 34, 10), logM, x, y, z)); l.rotation.z = Math.PI / 2; } } else { const l = add(mesh(cyl(3.6, 3.6, 92, 10), logM, 0, y, z)); l.rotation.z = Math.PI / 2; } }
-        for (const x of [-42, 42]) { const l = add(mesh(cyl(3.6, 3.6, 60, 10), logM, x, y + 3.5, 0)); l.rotation.x = Math.PI / 2; }
+      // a cosy burrow: a sandy mound covered in flat stones and moss, the tunnel held up by a log and sticks
+      const mound = add(mesh(jitterGeo(new THREE.SphereGeometry(46, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), 3, 11), mat('#c9a46a', { roughness: 1, flatShading: true }), 0, 0, -4));
+      mound.scale.set(1.1, 0.72, 0.95);
+      let sd = 21; const rr = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < 26; i++) {
+        // flat sandstone slabs lying over the mound
+        const a = rr() * Math.PI * 2, el = 0.25 + rr() * 1.05;
+        const x = Math.cos(a) * Math.cos(el) * 48, z = Math.sin(a) * Math.cos(el) * 43 - 4, y = Math.sin(el) * 32;
+        if (z > 18 && Math.abs(x) < 20 && y < 26) continue; // keep the entrance clear
+        const slab = add(mesh(jitterGeo(new THREE.CylinderGeometry(9 + rr() * 6, 10 + rr() * 6, 3, 7), 1.2, i + 2), mat(['#b49a76', '#a68b67', '#c2aa85', '#97805f'][i % 4], { roughness: 1, flatShading: true }), x, y + 1, z));
+        slab.lookAt(x * 2, y * 2 + 10, z * 2); slab.rotateX(Math.PI / 2);
       }
-      add(mesh(new THREE.BoxGeometry(18, 28, 1), mat('#2a1d12'), 0, 14, 25)).castShadow = false;
-      const roofM = mat('#6b4627', { roughness: 0.9, flatShading: true });
-      for (const s2 of [-1, 1]) { const r = add(mesh(new THREE.BoxGeometry(100, 3, 40), roofM, 0, 53, s2 * 15)); r.rotation.x = s2 * 0.55; }
-      for (let i = 0; i < 9; i++) for (const s2 of [-1, 1]) { const st = add(mesh(cyl(0.8, 0.8, 40, 5), mat('#7a4f25'), -44 + i * 11, 55, s2 * 15)); st.rotation.x = Math.PI / 2 + s2 * 0.55; }
-      add(mesh(new THREE.BoxGeometry(8, 22, 8), mat('#8d877d', { flatShading: true }), 30, 60, -10));
+      for (let i = 0; i < 14; i++) { const a = rr() * Math.PI * 2, d = rr() * 22; const moss = add(mesh(sphere(3 + rr() * 4, 7), mat(i % 2 ? '#6c8f3a' : '#587a2e', { roughness: 1 }), Math.cos(a) * d, 30 + rr() * 3, Math.sin(a) * d - 6)); moss.scale.y = 0.35; }
+      // the tunnel: a dark opening, propped up with sticks, the log laid across the top
+      const hole = add(mesh(new THREE.CircleGeometry(15, 20), mat('#1f160e', { side: THREE.DoubleSide })));
+      hole.position.set(0, 12, 38.5); hole.scale.y = 0.85; hole.castShadow = false;
+      const lintel = add(mesh(cyl(4.2, 4.2, 44, 12), mat('#8a5a2b', { roughness: 0.9 }), 0, 26, 38)); lintel.rotation.z = Math.PI / 2;
+      for (const sx of [-1, 1]) { const e = add(mesh(cyl(3.6, 3.6, 0.6, 12), mat('#c9a06a'), sx * 22.2, 26, 38)); e.rotation.z = Math.PI / 2; }
+      for (const sx of [-15, -8, 8, 15]) { const p = add(mesh(cyl(1.2, 1.4, 24, 6), mat('#7a4f25'), sx, 12, 40)); p.rotation.z = sx * 0.012; }
+      for (let i = 0; i < 6; i++) { const pb = add(mesh(jitterGeo(new THREE.DodecahedronGeometry(2.4 + rr() * 1.5, 0), 0.5, i + 30), mat('#a39d92', { flatShading: true }), -18 + i * 7, 1.2, 46 + rr() * 3)); pb.scale.y = 0.5; }
+      // a little patch of grass and a warm glow from inside at night
+      const glow = new THREE.MeshStandardMaterial({ color: '#2a1c10', emissive: '#ffb050', emissiveIntensity: 0 });
+      const inner = add(mesh(new THREE.CircleGeometry(9, 16), glow)); inner.position.set(0, 11, 37.8); inner.castShadow = false;
+      g.userData.winMat = glow;
       break;
     }
     case 'bed': {
