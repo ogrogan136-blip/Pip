@@ -142,6 +142,11 @@ class Game {
   }
 
   pet() {
+    if (this.lizard.state === 'holding') {
+      this.lizard.release();
+      this.lizard.think('Okay! Back to what I was doing. 🦎', 'happy');
+      return;
+    }
     this.lizard.needs.fun = clamp(this.lizard.needs.fun + 5, 0, 100);
     this.lizard.setMood('happy', 2);
     this.lizard.think(pick(['Hehe, scritches! 🥰', 'I like you, human. 💚', 'Mmm, that\'s nice. 😌']), 'happy');

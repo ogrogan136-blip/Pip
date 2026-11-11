@@ -38,6 +38,7 @@ class Lizard {
     this.blink = 0;
     this.tongue = 0;
     this.anim = 0;
+    this.carrying = null;  // id of the object in Pip's mouth
     this.onThought = null; // callback(text, kind)
     this.onAction = null;  // callback(type, verb, delta)
   }
@@ -84,12 +85,14 @@ class Lizard {
     if (this.moodTimer > 0) { this.moodTimer -= dt; if (this.moodTimer <= 0) this.mood = 'ok'; }
 
     this.updateNeeds(dt, world);
+    this.updateCarry(dt, world);
 
     this.senseTimer -= dt;
     if (this.senseTimer <= 0) {
       this.senseTimer = 0.4;
       const fresh = this.sense(world, brain);
-      if (fresh && this.state !== 'acting' && this.state !== 'fainted') {
+      const busy = this.state === 'holding' || (this.plan && this.plan.kind === 'fetch' && this.state === 'moving');
+      if (fresh && this.state !== 'acting' && this.state !== 'fainted' && !busy) {
         const T = TYPES[fresh.type];
         this.think(`Ooh! What's that ${T.emoji}? I've never seen one before! 👀`, 'discover');
         this.setMood('curious');
@@ -100,6 +103,7 @@ class Lizard {
     if (this.needs.health <= 0 && this.state !== 'fainted') {
       this.state = 'fainted'; this.timer = 6;
       this.inside = false;
+      this.drop(world);
       this.think(`${this.name} fainted! 😵 I need to take better care of myself…`, 'bad');
     }
 
@@ -146,6 +150,16 @@ class Lizard {
         const d = dist(this.x, this.y, p.x, p.y);
         if (p.kind === 'act' && p.type === 'ground') { this.startAction(null, p); break; }
         if (d < reachDist) {
+          if (p.kind === 'fetch') {
+            if (!obj) { this.think('Huh, where did it go? 🤨', 'meh'); this.state = 'pausing'; this.timer = 1; break; }
+            this.pickUp(obj);
+            this.state = 'holding'; this.timer = 180; this.speed = 0;
+            this.heading = Math.atan2(WORLD_H - this.y, WORLD_W / 2 - this.x); // turn towards you
+            const T = TYPES[obj.type];
+            this.think(T.byPip ? `Look! This is the ${T.emoji} ${T.name} I made! (Click me when you're done looking.)` : `Here's the ${T.emoji} ${T.name}! (Click me when you're done.)`, 'happy');
+            this.setMood('happy', 4);
+            break;
+          }
           if (p.kind === 'skill' && !p.objId) { this.startAction(null, p); break; }
           if (p.kind === 'wander') { this.state = 'pausing'; this.timer = 1.5 + Math.random() * 2; this.speed = 0; break; }
           if (!obj) {
@@ -164,7 +178,7 @@ class Lizard {
           this.startAction(obj, p);
           break;
         }
-        if (this.moveTime > 14) { this.state = 'deciding'; break; }
+        if (this.moveTime > (p.kind === 'fetch' ? 40 : 14)) { this.state = 'deciding'; break; }
         this.steer(dt, p.x, p.y, world, brain);
         break;
       }
@@ -181,6 +195,15 @@ class Lizard {
         this.moveBody(dt);
         this.timer -= dt;
         if (this.timer <= 0) this.state = 'deciding';
+        break;
+      }
+      case 'holding': {
+        // showing something off to its human until clicked
+        this.speed = 0;
+        this.moveBody(dt);
+        this.timer -= dt;
+        const n = this.needs;
+        if (this.timer <= 0 || n.health < 25 || n.fullness < 10 || n.hydration < 10) { this.release(); this.think('I\'ll put this down for now.', 'meh'); }
         break;
       }
       case 'fainted': {
@@ -206,6 +229,8 @@ class Lizard {
     if (this.longSleep) this.timer = 26; // a proper sleep
     this.inside = !!(obj && TYPES[obj.type].building && ['read', 'play', 'rest'].includes(plan.verb));
     if (obj) { this.heading = Math.atan2(obj.y - this.y, obj.x - this.x); obj.held = !TYPES[obj.type].building; }
+    // small things get picked up and used in Pip's mouth
+    if (obj && plan.verb === 'play' && this.canCarry(obj)) this.pickUp(obj);
   }
 
   finishAction(world, brain, task) {
@@ -213,6 +238,7 @@ class Lizard {
     const obj = this.actObj && world.get(this.actObj.id);
     this.inside = false;
     if (obj) obj.held = false;
+    this.drop(world);
     if (p.type !== 'ground' && !obj) { this.state = 'deciding'; return; }
     if (p.kind === 'skill') return this.finishSkill(world, brain, obj);
     let delta, r;
@@ -243,6 +269,51 @@ class Lizard {
     if (p.reason === 'curious') brain.satisfyCuriosity(world.time);
     this.state = 'pausing';
     this.timer = 6 + Math.random() * 5;
+  }
+
+  canCarry(o) {
+    const T = TYPES[o.type];
+    return !!T && !T.building && (T.custom || ['stick', 'shell', 'bone', 'flower', 'berry'].includes(o.type));
+  }
+  pickUp(o) {
+    this.carrying = o.id;
+    o.held = true; o.carried = true; o.vx = o.vy = 0;
+  }
+  // put it down where Pip is: next time Pip wants it, it has to come back for it
+  drop(world) {
+    if (!this.carrying) return;
+    const o = world.get(this.carrying);
+    if (o) { o.held = false; o.carried = false; o.lift = 0; o.swing = 0; o.x = clamp(this.x + Math.cos(this.heading) * 20, 15, WORLD_W - 15); o.y = clamp(this.y + Math.sin(this.heading) * 20, 15, WORLD_H - 15); }
+    this.carrying = null;
+  }
+  release() {
+    this.dropPending = true;
+    this.state = 'pausing'; this.timer = 1.5;
+  }
+  fetch(obj) {
+    if (!obj) return false;
+    this.drop(this.worldRef);
+    this.plan = { kind: 'fetch', objId: obj.id, type: obj.type, x: obj.x, y: obj.y, reason: 'task' };
+    this.state = 'moving'; this.moveTime = 0;
+    this.think(`Oh, you want to see it? I'll go get the ${TYPES[obj.type].emoji}!`, 'happy');
+    return true;
+  }
+  updateCarry(dt, world) {
+    this.worldRef = world;
+    if (this.dropPending) { this.dropPending = false; this.drop(world); }
+    if (!this.carrying) return;
+    const o = world.get(this.carrying);
+    if (!o) { this.carrying = null; return; }
+    const using = this.state === 'acting' && this.plan && this.plan.verb === 'play';
+    const side = using ? Math.sin(this.anim * 7) * 9 : 0;
+    const h = this.heading;
+    o.x = this.x + Math.cos(h) * 20 + Math.cos(h + Math.PI / 2) * side;
+    o.y = this.y + Math.sin(h) * 20 + Math.sin(h + Math.PI / 2) * side;
+    o.lift = this.state === 'holding' ? 16 + Math.sin(this.anim * 3) * 2 : 9;
+    o.swing = using ? Math.sin(this.anim * 7) * 0.6 : 0;
+    // brushes and brooms kick up dust when used
+    const T = TYPES[o.type];
+    if (using && T && /brush|broom|mop|sweep|duster/.test(T.name) && Math.random() < dt * 4) world.addFx('sand', o.x, o.y);
   }
 
   // Trying out something Pip wasn't born knowing. Clumsy at first, better with practice.

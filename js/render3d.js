@@ -471,6 +471,23 @@ class Renderer3D {
       }
       const T = TYPES[o.type];
       m.position.copy(toV(o.x, o.y));
+      if (o.carried) {
+        m.position.y += o.lift || 0;
+        m.scale.setScalar(Math.min(1, 15 / T.size));
+        m.rotation.z = o.swing || 0;
+        m.userData.grow = 1;
+      } else if (m.userData.wasCarried) { m.scale.setScalar(1); m.rotation.z = 0; }
+      m.userData.wasCarried = !!o.carried;
+      if (T.custom && !m.userData.label) {
+        // a floating icon, so you can tell what an invented thing is
+        const c = document.createElement('canvas'); c.width = c.height = 64;
+        const x = c.getContext('2d'); x.font = '48px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+        x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(T.emoji, 32, 36);
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+        sp.scale.set(20, 20, 1); sp.position.y = T.size * 2 + 14;
+        m.add(sp); m.userData.label = sp;
+      }
+      if (m.userData.label) m.userData.label.position.y = T.size * 2 + 14 + Math.sin(o.t * 2) * 2;
       if (m.userData.grow < 1) { m.userData.grow = Math.min(1, m.userData.grow + 0.08); const g = m.userData.grow; m.scale.setScalar(g < 1 ? 1 + Math.sin(g * Math.PI) * 0.25 - (1 - g) : 1); }
       if (T.hops) {
         if (o.hop > 0) m.position.y = Math.sin((0.35 - o.hop) / 0.35 * Math.PI) * 14;
@@ -717,10 +734,12 @@ class Renderer3D {
     const L = game.lizard;
     const p = L.plan;
     let icon = null;
-    if (L.state === 'idling') icon = '💭';
+    if (L.state === 'holding') icon = '👀✨';
+    else if (L.state === 'idling') icon = '💭';
     else if ((L.state === 'moving' || L.state === 'considering') && p) {
       if (p.kind === 'wander') icon = '🧭';
       else if (p.kind === 'idle') icon = '💭';
+      else if (!VERB_INFO[p.verb]) icon = '🏃' + (typeInfo(p.type) ? typeInfo(p.type).emoji : '');
       else icon = VERB_INFO[p.verb].icon + (p.type === 'ground' ? '' : typeInfo(p.type).emoji) + (p.reason === 'curious' ? '?' : p.reason === 'task' ? '📋' : '');
     } else if (L.state === 'acting' && p) icon = p.verb === 'read' ? '📖 …' : L.inside ? '…' : VERB_INFO[p.verb].icon;
     else if (L.mood === 'happy') icon = '💚';

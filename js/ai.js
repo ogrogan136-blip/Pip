@@ -71,7 +71,8 @@ Work out what the human means and how Pip answers. Reply with only a JSON object
    {"do": "give", "thing": "<type key>"}        // the human is giving Pip a thing (it appears next to Pip)
    {"do": "idea", "idea": "dig|break|craft|recipe:nest|recipe:digger|recipe:den"}   // the human suggested a new skill
    {"do": "task", "verb": "eat|drink|bask|rest|play|any", "thing": "<type key>", "count": 1}  // the human asked Pip to do something
- If the human asks Pip to invent, imagine, make or create something, you MUST include a create action.
+ If the human asks Pip to invent, imagine, make or create something, or Pip says it made something, you MUST include a create action for it.
+   {"do": "show", "thing": "<type key>"}       // the human wants to see something: Pip fetches it and holds it up
    {"do": "create", "thing": {"name": "1-3 words", "emoji": "one emoji", "shape": "ball|box|cone|cylinder|blob|star", "color": "#rrggbb", "size": "small|medium|big", "where": "dig|here", "moves": true/false, "goneWhenEaten": true/false,
   "does": {"eat": "nothing|good|great|bad|random", "drink": "...", "bask": "...", "rest": "...", "play": "..."},
   "says": {"eat": "what Pip sees happen, max 12 words", "play": "...", ...only for verbs that do something}}}   // the human gave or asked for something that does not exist yet: invent it, however silly
@@ -81,6 +82,18 @@ Work out what the human means and how Pip answers. Reply with only a JSON object
 Only use thing type keys from the list for learn/give/task. If the human wants something that does not exist, use create (it appears next to Pip). \"random\" means a different surprise each time.`;
     const out = await this.sample.json(prompt, { modelTier: 'quick', cache: false });
     return out && typeof out === 'object' ? out : { say: String(out || '') };
+  },
+
+  // ---- fill in a thing that was only mentioned ----
+  async describeThing(game, said, asked) {
+    const prompt = `${this.rules()}
+
+The human said: "${asked}"
+Pip answered: "${said}"
+Pip is talking about a thing it made or will make. Describe exactly that thing (if no particular thing is named, pick something fun that fits) so it can appear in the terrarium.
+Reply with only a JSON object of this shape:
+{"name": "1-3 words", "emoji": "one emoji", "shape": "ball|box|cone|cylinder|blob|star", "color": "#rrggbb", "size": "small|medium|big", "moves": false, "goneWhenEaten": false, "does": {"eat": "nothing|good|great|bad|random", "drink": "...", "bask": "...", "rest": "...", "play": "..."}, "says": {"play": "what Pip sees happen when it uses it, max 12 words"}}`;
+    return await this.sample.json(prompt, { modelTier: 'quick', cache: false });
   },
 
   // ---- deep thought (button) ----
@@ -108,7 +121,7 @@ Reply with only a JSON object:
 function applyAiReply(game, r) {
   const valid = t => typeof t === 'string' && TYPES[t] && (!TYPES[t].hidden || game.brain.seen[t] || TYPES[t].custom);
   const verbs = ['eat', 'drink', 'bask', 'rest', 'play'];
-  let created = false;
+  let created = false, showing = false;
   for (const a of Array.isArray(r.actions) ? r.actions.slice(0, 4) : []) {
     if (!a || typeof a !== 'object') continue;
     if (a.do === 'learn' && valid(a.thing) && verbs.includes(a.verb) && a.effect !== 'nothing') game.believe(a.thing, a.verb, a.effect === 'bad');
@@ -117,19 +130,22 @@ function applyAiReply(game, r) {
     else if (a.do === 'task' && valid(a.thing) && (verbs.includes(a.verb) || a.verb === 'any')) game.giveTask({ text: taskTextFor(a.verb, a.thing), verb: a.verb, type: a.thing, count: clamp(Math.round(+a.count || 1), 1, 5), auto: true });
     else if (a.do === 'create') {
       const def = a.thing && typeof a.thing === 'object' ? a.thing : a;
-      const key = createInvented(game, def, false);
+      const key = createInvented(game, def, true);
       if (key) { spawnInvention(game, key, 70); created = true; }
+    }
+    else if (a.do === 'show' && valid(a.thing)) {
+      const obj = game.world.objects.filter(o => o.type === a.thing)[0];
+      if (obj) { game.lizard.fetch(obj); showing = true; }
     }
     else if (a.do === 'praise') { const la = game.lizard.lastAction; if (la) game.brain.addPraise(la.type, la.verb, 1); game.lizard.needs.fun = clamp(game.lizard.needs.fun + 6, 0, 100); }
     else if (a.do === 'scold') { const la = game.lizard.lastAction; if (la) game.brain.addPraise(la.type, la.verb, -1); }
   }
   queueDaydreams(game, r.daydreams);
-  // asked to invent something but the answer forgot to? Pip makes something up itself.
-  if (!created && /\b(invent|imagine|create|make|build|conjure|spawn|summon)\b/i.test(r._asked || '')) {
-    const key = createInvented(game, game.daydreams.shift() || randomInvention(), false);
-    if (key) spawnInvention(game, key, 70);
-  }
+  // Pip (or the human) talked about making something, but no object came with the answer:
+  // flag it so the page can ask for the details of exactly that thing.
   const say = String(r.say || '').trim().slice(0, 220);
+  const claims = /\b(made|invented|created|built|imagined|conjured|here'?s? (a|an|my))\b/i.test(say) || /\b(invent|imagine|create|make|build|conjure|spawn|summon)\b/i.test(r._asked || '');
+  r._missing = !created && !showing && claims;
   game.question = null;
   game.pipSay(say || '…', 'happy');
   if (['idling', 'pausing'].includes(game.lizard.state)) game.lizard.state = 'deciding';
@@ -185,6 +201,7 @@ function spawnInvention(game, key, r) {
   const L = game.lizard, a = Math.random() * Math.PI * 2;
   game.world.makeRoom();
   const o = game.world.add(key, L.x + Math.cos(a) * r, L.y + Math.sin(a) * r);
+  game.lastInvented = key;
   if (o) game.world.addFx('sparkle', o.x, o.y);
   return o;
 }

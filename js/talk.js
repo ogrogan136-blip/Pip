@@ -126,7 +126,7 @@ const Talk = {
     }
     // 3. something it has seen and knows nothing about
     b.asked = b.asked || {};
-    const mem = [...L.memory.values()].find(m => TYPES[m.type] && !b.asked[m.type] && VERBS.filter(v => b.known(m.type, v)).length <= 1 && !b.known(m.type, 'read') && b.danger(m.type) > -3);
+    const mem = [...L.memory.values()].find(m => TYPES[m.type] && !TYPES[m.type].byPip && !b.asked[m.type] && VERBS.filter(v => b.known(m.type, v)).length <= 1 && !b.known(m.type, 'read') && b.danger(m.type) > -3);
     if (mem) {
       b.asked[mem.type] = 1;
       const T = TYPES[mem.type];
@@ -228,6 +228,12 @@ const Talk = {
     if (q && q.kind === 'whatis' && (verb || u.bad)) {
       this.question = null;
       return done(this.believe(q.type, verb, u.bad));
+    }
+    // "show me what you made" → fetch it and hold it up
+    if (u.words.some(w => ['show', 'see', 'look', 'hold', 'bring', 'fetch'].includes(w))) {
+      const key = u.types.find(t => !TYPES[t].building) || this.lastInvented;
+      const obj = key && this.world.objects.filter(o => o.type === key).sort((a, b) => dist(a.x, a.y, this.lizard.x, this.lizard.y) - dist(b.x, b.y, this.lizard.x, this.lizard.y))[0];
+      if (obj) { this.lizard.fetch(obj); this.chat.push({ from: 'pip', text: this.lizard.thought }); return this.emit('chat'); }
     }
     const hint = u.words.some(w => ['dig', 'burrow', 'bury', 'buried', 'underground'].includes(w)) ? 'dig' : u.words.some(w => ['break', 'snap', 'rip', 'tear', 'apart'].includes(w)) ? 'break' : u.words.some(w => ['craft', 'build', 'make', 'nest', 'den'].includes(w)) ? 'craft' : null;
     if (hint) {

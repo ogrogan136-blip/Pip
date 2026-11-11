@@ -267,7 +267,18 @@
     if (!(AI.ready && $('aiOn').checked)) { game.say(t); renderChat(); return; }
     game.youSay(t); renderChat();
     AI.busy = true; showThinking(true);
-    try { const r = await AI.reply(game, t); if (r && typeof r === 'object') r._asked = t; applyAiReply(game, r); }
+    try {
+      const r = await AI.reply(game, t);
+      if (r && typeof r === 'object') r._asked = t;
+      applyAiReply(game, r);
+      if (r && r._missing) {
+        // Pip mentioned making something: get that exact thing's details so it really appears
+        let def = null;
+        try { def = await AI.describeThing(game, String(r.say || ''), t); } catch (e2) { def = null; }
+        const key = createInvented(game, def && def.name ? def : (game.daydreams.shift() || randomInvention()), true);
+        if (key) { spawnInvention(game, key, 70); game.lizard.think(`There it is — my ${TYPES[key].emoji} ${TYPES[key].name}!`, 'discover'); }
+      }
+    }
     catch (err) { aiProblem(AI.handleError(err)); game.chat.pop(); game.say(t); }
     finally { AI.busy = false; showThinking(false); chatSig = null; renderChat(); save(); }
   });
