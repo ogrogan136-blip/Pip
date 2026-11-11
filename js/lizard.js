@@ -226,7 +226,7 @@ class Lizard {
     this.state = 'acting';
     this.speed = 0;
     this.actObj = obj;
-    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4 }[plan.verb] || 4;
+    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4, tinker: 10 }[plan.verb] || 4;
     this.longSleep = plan.verb === 'rest' && this.needs.energy < 40;
     if (this.longSleep) this.timer = 26; // a proper sleep
     this.inside = !!(obj && TYPES[obj.type].building && ['read', 'play', 'rest'].includes(plan.verb));
@@ -364,6 +364,10 @@ class Lizard {
         s.hits++; mood = 'happy';
         text = s.hits === 1 ? `I planted a ${TYPES[p.type].emoji} seed! Now I just have to wait for it to grow. 🌱` : o && o.onGrass ? `Planted a ${TYPES[p.type].emoji} seed in the grass. Grow, little seed!` : `Planted another ${TYPES[p.type].emoji} seed.`;
       }
+    } else if (p.verb === 'tinker') {
+      const res = this.onTinker ? this.onTinker(p.type, p.with, this.x + Math.cos(this.heading) * 22, this.y + Math.sin(this.heading) * 22) : null;
+      text = res ? res.text : 'Hmm.';
+      mood = res && res.ok ? 'happy' : 'meh';
     } else if (p.verb === 'grab') {
       if (obj) { this.pickUp(obj); this.keepCarry = true; text = 'Got my bucket. 🪣'; mood = 'happy'; }
       else text = 'Where did my bucket go?';
@@ -412,7 +416,8 @@ class Lizard {
       }
     }
     brain.stats.actions++;
-    brain.spark(p.verb === 'dig' ? 'digging' : ['plant', 'tend'].includes(p.verb) || (RECIPES[p.recipe] && RECIPES[p.recipe].farm) ? 'garden' : RECIPES[p.recipe] && RECIPES[p.recipe].food ? 'cooking' : 'building', 0.03);
+    if (p.verb === 'tinker') brain.spark('building', 0.03);
+    else brain.spark(p.verb === 'dig' ? 'digging' : ['plant', 'tend'].includes(p.verb) || (RECIPES[p.recipe] && RECIPES[p.recipe].farm) ? 'garden' : RECIPES[p.recipe] && RECIPES[p.recipe].food ? 'cooking' : 'building', 0.03);
     this.think(text, mood === 'happy' ? 'discover' : 'meh');
     this.setMood(mood === 'happy' ? 'happy' : 'meh');
     brain.satisfyCuriosity(world.time);

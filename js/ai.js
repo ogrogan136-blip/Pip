@@ -72,7 +72,7 @@ Work out what the human means and how Pip answers. Reply with only a JSON object
    {"do": "give", "thing": "<type key>"}        // the human is giving Pip a thing (it appears next to Pip)
    {"do": "idea", "idea": "dig|break|craft|recipe:nest|recipe:digger|recipe:den"}   // the human suggested a new skill
    {"do": "task", "verb": "eat|drink|bask|rest|play|any", "thing": "<type key>", "count": 1}  // the human asked Pip to do something
- If the human asks Pip to invent, imagine, make or create something, or Pip says it made something, you MUST include a create action for it.
+ If the human asks Pip to invent, imagine, make or create something, suggests something for Pip to make, or Pip says it made something, you MUST include a create action for it.
    {"do": "show", "thing": "<type key>"}       // the human wants to see something: Pip fetches it and holds it up
    {"do": "create", "thing": {"name": "1-3 words", "emoji": "one emoji", "shape": "ball|box|cone|cylinder|blob|star", "color": "#rrggbb", "size": "small|medium|big", "where": "dig|here", "moves": true/false, "goneWhenEaten": true/false,
   "does": {"eat": "nothing|good|great|bad|random", "drink": "...", "bask": "...", "rest": "...", "play": "..."},
@@ -175,7 +175,7 @@ function createInvented(game, inv, byPip) {
     does[v] = levels.includes(inv.does && inv.does[v]) ? inv.does[v] : 'nothing';
     if (inv.says && typeof inv.says[v] === 'string' && inv.says[v].trim()) says[v] = inv.says[v].trim().slice(0, 90);
   }
-  const name = String(inv.name).toLowerCase().replace(/[^a-z0-9 '-]/g, '').trim().slice(0, 22);
+  const name = String(inv.name).toLowerCase().replace(/[^a-z0-9 '-]/g, '').trim().slice(0, 30).trim();
   if (!name) return null;
   const existing = Object.entries(TYPES).find(([, T]) => T.name === name);
   if (existing) return existing[0];
@@ -257,4 +257,78 @@ function maybeDaydream(game) {
   L.think(def.where === 'dig' ? `I had a funny feeling and dug a little… a ${T.emoji} ${T.name} was under the sand!` : pick([`I closed my eyes and imagined a ${T.emoji} ${T.name}… and now there is one!`, `Did… did I just think up a ${T.emoji} ${T.name}? It's right there!`, `What if there was a ${T.name}? Oh. There is. ${T.emoji}`]), 'discover');
   L.setMood('curious', 4);
   if (o && L.state !== 'acting') L.state = 'deciding';
+}
+
+// Two things stuck together: maybe nothing, maybe a brand-new invention Pip can make again.
+function comboInvention(a, b) {
+  const A = TYPES[a], B = TYPES[b], short = T => T.name.split(' ').pop();
+  const food = A.food || B.food, soft = ['wool', 'cotton', 'flower', 'grass'].some(t => t === a || t === b);
+  const kind = food ? 'food' : soft ? 'comfy' : 'toy';
+  const name = `${short(A)}-${short(B)} ${kind === 'food' ? 'bites' : kind === 'comfy' ? 'cushion' : 'toy'}`;
+  const does = { eat: 'nothing', drink: 'nothing', bask: 'nothing', rest: 'nothing', play: 'nothing' };
+  if (kind === 'food') does.eat = Math.random() < 0.6 ? 'great' : Math.random() < 0.6 ? 'good' : 'random';
+  if (kind === 'comfy') { does.rest = 'great'; does.play = 'good'; }
+  if (kind === 'toy') does.play = Math.random() < 0.6 ? 'great' : 'random';
+  const says = { eat: `It tasted like ${short(A)} and ${short(B)} at the same time!`, play: `The ${short(A)} bit wobbles and the ${short(B)} bit spins!`, rest: 'So squishy!' };
+  return { name, emoji: kind === 'food' ? '🥙' : kind === 'comfy' ? '🧸' : '🪀', shape: kind === 'food' ? 'blob' : kind === 'comfy' ? 'box' : 'star', color: kind === 'food' ? '#d9a441' : kind === 'comfy' ? '#e8d6c0' : '#6ad0e0', size: 'small', where: 'here', moves: false, goneWhenEaten: kind === 'food', does, says };
+}
+
+function registerCustomRecipe(key, R) { RECIPES[key] = R; }
+
+function tinker(game, a, b, x, y) {
+  const brain = game.brain, w = game.world, A = TYPES[a], B = TYPES[b];
+  if (!A || !B) return { ok: false, text: 'Hmm, where did it go?' };
+  if (!w.objects.some(o => o.type === a) || !w.objects.some(o => o.type === b)) return { ok: false, text: `I need a ${A.emoji} and a ${B.emoji} to try that.` };
+  brain.combos = brain.combos || {}; brain.customRecipes = brain.customRecipes || {};
+  const pair = [a, b].sort().join('+');
+  brain.nextTinker = w.time + 900 + Math.random() * 600; // a good long think before the next experiment
+  if (brain.combos[pair] === undefined) brain.combos[pair] = Math.random() < 0.4 ? 'new' : 'none';
+  w.addFx('chips', x, y);
+  if (brain.combos[pair] === 'none') return { ok: false, text: `I squished the ${A.emoji} and the ${B.emoji} together… nothing useful happened. Oh well! 🤷` };
+  let rk = brain.combos[pair];
+  if (rk === 'new' || !RECIPES[rk]) {
+    const def = comboInvention(a, b);
+    const key = createInvented(game, def, true);
+    if (!key) return { ok: false, text: 'I almost made something… but it fell apart.' };
+    rk = 'c_' + pair.replace(/[^a-z0-9+]/gi, '');
+    const R = { needs: { [a]: 1, [b]: 1 }, makes: key, label: `a ${TYPES[key].name}`, custom: true, food: def.does.eat !== 'nothing' };
+    registerCustomRecipe(rk, R); brain.customRecipes[rk] = R; brain.combos[pair] = rk;
+    brain.addIdea('recipe:' + rk, 'tinkering');
+    w.craft(rk, x, y);
+    return { ok: true, text: `I stuck the ${A.emoji} ${A.name} and the ${B.emoji} ${B.name} together and made… a ${TYPES[key].emoji} ${TYPES[key].name}! I INVENTED something! 🤩` };
+  }
+  w.craft(rk, x, y);
+  return { ok: true, text: `I made another ${TYPES[RECIPES[rk].makes].emoji} ${TYPES[RECIPES[rk].makes].name}.` };
+}
+
+// An invention of a chosen kind (when you suggest one with a button)
+function suggestedInvention(kind) {
+  const d = randomInvention();
+  for (const v of VERBS) { d.does[v] = 'nothing'; }
+  d.says = {};
+  if (kind === 'food') { d.does.eat = 'great'; d.goneWhenEaten = true; d.says.eat = 'Yum! Best thing I ever ate!'; d.emoji = ['🧁', '🍩', '🥟', '🍡', '🥮'][Math.floor(Math.random() * 5)]; d.name = d.name.split(' ')[0] + ' ' + ['cake', 'dumpling', 'bun', 'pie', 'jelly'][Math.floor(Math.random() * 5)]; }
+  else if (kind === 'comfy') { d.does.rest = 'great'; d.does.play = 'good'; d.says.rest = 'Like sleeping on a cloud.'; d.emoji = ['🧸', '🛌', '🪺'][Math.floor(Math.random() * 3)]; d.name = d.name.split(' ')[0] + ' ' + ['pillow', 'blanket', 'hammock', 'cushion'][Math.floor(Math.random() * 4)]; }
+  else if (kind === 'toy') { d.does.play = 'great'; d.says.play = 'Wheee! This is the best toy!'; d.emoji = ['🪀', '🎈', '🧩', '🪁', '🎲'][Math.floor(Math.random() * 5)]; d.name = d.name.split(' ')[0] + ' ' + ['spinner', 'balloon', 'puzzle', 'kite', 'bouncer'][Math.floor(Math.random() * 5)]; }
+  else { for (const v of VERBS) d.does[v] = ['nothing', 'random', 'good'][Math.floor(Math.random() * 3)]; }
+  d.where = 'here';
+  return d;
+}
+
+// Something you typed as an idea, turned into a thing
+function inventionFromText(text) {
+  // drop the "you could make a…" bit at the start, keep the rest as the name
+  const lead = new Set(['a', 'an', 'the', 'some', 'make', 'build', 'create', 'invent', 'you', 'could', 'should', 'maybe', 'how', 'about', 'what', 'if', 'try', 'please', 'i', 'think', 'want', 'want', 'to', 'can', 'me', 'us']);
+  const ws = String(text).toLowerCase().replace(/[^a-z\s'-]/g, ' ').split(/\s+/).filter(Boolean);
+  while (ws.length && lead.has(ws[0])) ws.shift();
+  let name = '';
+  for (const w of ws) { if ((name + ' ' + w).trim().length > 30) break; name = (name + ' ' + w).trim(); }
+  while (/\s(of|and|with|made|a|the|from)$/.test(name)) name = name.replace(/\s+\S+$/, '');
+  name = name || 'mystery thing';
+  const u = understand(text);
+  const kind = u.verb === 'eat' || u.verb === 'drink' ? 'food' : u.verb === 'rest' ? 'comfy' : u.verb === 'play' ? 'toy' : /cake|pie|soup|bread|sandwich|cookie|snack|food|treat|meal|pizza|candy/.test(text) ? 'food' : /bed|pillow|blanket|cushion|sofa|couch|hammock|chair/.test(text) ? 'comfy' : 'toy';
+  const d = suggestedInvention(kind);
+  d.name = name;
+  const match = u.types[0] && TYPES[u.types[0]];
+  if (match) d.emoji = match.emoji;
+  return d;
 }

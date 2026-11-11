@@ -61,7 +61,7 @@ function understand(text) {
   for (const [k, T] of Object.entries(TYPES)) {
     const names = (T.words || []).concat(wordsOf(T.name));
     // multi-word names ("heat lamp") need their most specific word; single words match directly
-    if (names.some(n => ws.includes(n) && !['heat', 'dish', 'shop', 'store'].includes(n)) || ws.join(' ').includes(T.name)) types.push(k);
+    if (names.some(n => ws.includes(n) && n.length > 2 && !STOPWORDS.has(n) && !['heat', 'dish', 'shop', 'store', 'ball'].includes(n)) || ws.join(' ').includes(T.name)) types.push(k);
   }
   let verb = null;
   for (const [v, list] of Object.entries(VERB_WORDS)) if (has(list)) { verb = v; break; }
@@ -98,7 +98,7 @@ const Talk = {
   ask(q) {
     this.question = q;
     q.options = (q.options || []).concat([{ label: q.kind === 'want' ? '🔎 Find it yourself' : '🤷 Work it out yourself', act: 'dismiss' }]);
-    this.nextAsk = this.world.time + 100 + Math.random() * 120;
+    this.nextAsk = this.world.time + 300 + Math.random() * 300;
     this.pipSay(q.text, 'curious');
   },
 
@@ -122,9 +122,29 @@ const Talk = {
     for (const verb of Object.keys(desp)) {
       const need = verb === 'play' ? 'fun' : Object.keys(INSTINCT).find(n => INSTINCT[n] === verb);
       const gifts = Object.keys(TYPES).filter(t => !TYPES[t].building && truthOf(t, verb)[need] >= 8).slice(0, 4);
-      return this.ask({ kind: 'want', need, verb, text: ASK_FOR[need][0], options: gifts.map(t => ({ label: `Give ${TYPES[t].emoji} ${TYPES[t].name}`, act: 'give', type: t, verb })) });
+      const fixtures = gifts.filter(t => ['water', 'lamp', 'log', 'hut', 'bed', 'grass'].includes(t) && this.world.objects.some(o => o.type === t));
+      const opts = gifts.filter(t => !fixtures.includes(t) && !TYPES[t].patch).map(t => ({ label: `Give ${TYPES[t].emoji} ${TYPES[t].name}`, act: 'give', type: t, verb }));
+      fixtures.forEach(t => opts.unshift({ label: `${TYPES[t].emoji} Try the ${TYPES[t].name}`, act: 'tell', verb }));
+      const qq = this.ask({ kind: 'want', need, verb, text: ASK_FOR[need][0], options: opts });
+      if (fixtures.length) this.question.type = fixtures[0];
+      return qq;
     }
-    // 3. something it has seen and knows nothing about
+    // 3. stuck on something it wants to do: ask for help
+    const g = b.garden || {};
+    if (g.needBucket && !b.hasIdea('recipe:bucket') && !b.asked?.bucket) {
+      (b.asked = b.asked || {}).bucket = 1;
+      return this.ask({ kind: 'help', text: 'My seedlings are thirsty but I can\'t carry water in my mouth. How do I get water to them?', options: [{ label: '🪣 Make a bucket from two sticks', act: 'idea', idea: 'recipe:bucket', also: ['carry', 'break'] }] });
+    }
+    if (L.needs.energy < 50 && !this.world.objects.some(o => o.type === 'hut' || o.type === 'bed') && !b.hasIdea('recipe:hut') && !b.asked?.hut && b.known('log', 'rest')) {
+      (b.asked = b.asked || {}).hut = 1;
+      return this.ask({ kind: 'help', text: 'Sleeping on logs and sand isn\'t very comfy. Any ideas for a better place to sleep?', options: [{ label: '🛖 Build a cabin from a log and sticks', act: 'idea', idea: 'recipe:hut', also: ['break', 'craft'] }, { label: '🪺 Make a nest from sticks', act: 'idea', idea: 'recipe:nest', also: ['break', 'craft'] }] });
+    }
+    // 4. wants to make something new: ask its human for ideas
+    if (this.world.time > this.nextIdeaAsk && b.hasIdea('craft') && L.needs.fun < 70 && !(L.refill && (L.refill.fullness || L.refill.hydration)) && Math.random() < 0.35) {
+      this.nextIdeaAsk = this.world.time + 900 + Math.random() * 900;
+      return this.ask({ kind: 'idea', text: pick(['I want to make something new! What should I make?', 'I\'m out of ideas. Got anything you think I should invent?', 'Help me think of something to make!']), options: [{ label: '🍽️ Something tasty', act: 'suggest', kind: 'food' }, { label: '🧸 Something comfy', act: 'suggest', kind: 'comfy' }, { label: '🪀 A toy', act: 'suggest', kind: 'toy' }, { label: '🤪 Something weird', act: 'suggest', kind: 'weird' }] });
+    }
+    // 5. something it has seen and knows nothing about
     b.asked = b.asked || {};
     const mem = [...L.memory.values()].find(m => TYPES[m.type] && !TYPES[m.type].byPip && !b.asked[m.type] && VERBS.filter(v => b.known(m.type, v)).length <= 1 && !b.known(m.type, 'read') && b.danger(m.type) > -3);
     if (mem) {
@@ -197,6 +217,14 @@ const Talk = {
     this.question = null;
     if (o.act === 'give') this.pipSay(this.give(o.type, o.verb));
     else if (o.act === 'tell') this.pipSay(this.believe(q.type, o.verb || null, !!o.bad));
+    else if (o.act === 'idea') {
+      this.brain.addIdea(o.idea, 'you'); (o.also || []).forEach(i => this.brain.addIdea(i, 'you'));
+      this.pipSay(`Ooh, ${RECIPES[o.idea.slice(7)] ? RECIPES[o.idea.slice(7)].label : 'that'}! Why didn't I think of that? I'll try! 💡`);
+    }
+    else if (o.act === 'suggest') {
+      const key = createInvented(this, suggestedInvention(o.kind), true);
+      if (key) { spawnInvention(this, key, 70); this.pipSay(`Good idea! I made a ${TYPES[key].emoji} ${TYPES[key].name}! 🤩`); }
+    }
     else this.pipSay('Okay. I\'ll work it out myself.', null);
     if (['idling', 'pausing'].includes(this.lizard.state)) this.lizard.state = 'deciding';
   },
@@ -209,6 +237,13 @@ const Talk = {
     const u = understand(text), q = this.question, T0 = u.types[0] && TYPES[u.types[0]];
     const done = reply => { this.pipSay(reply); if (['idling', 'pausing'].includes(this.lizard.state)) this.lizard.state = 'deciding'; };
 
+    if (q && q.kind === 'idea') {
+      // your idea becomes a real thing
+      this.question = null;
+      const key = createInvented(this, inventionFromText(text), true);
+      if (key) { spawnInvention(this, key, 70); return done(`Ooh, a ${TYPES[key].emoji} ${TYPES[key].name}! I made it! 🤩`); }
+    }
+    if (q && q.kind === 'help') this.question = null;
     if (q && q.kind === 'word' && this.task) {
       if (!T0) return this.pipSay('I still don\'t get it. Which thing do you mean?', 'curious');
       this.teachWords(u.types[0], u.verb && u.verb !== 'read' ? u.verb : null);
@@ -253,7 +288,7 @@ const Talk = {
   // ---------- inventing new things ----------
   addCustom(def) {
     def.key = 'c' + Date.now().toString(36) + Math.floor(Math.random() * 99);
-    def.name = String(def.name || 'thing').trim().slice(0, 18).toLowerCase() || 'thing';
+    def.name = String(def.name || 'thing').trim().slice(0, 30).toLowerCase() || 'thing';
     this.custom.push(def);
     registerCustomType(def);
     this.emit('types');
@@ -268,6 +303,7 @@ const Talk = {
     if (this.task && this.task.type === key) this.task = null;
     if (this.lizard.plan && this.lizard.plan.type === key) this.lizard.state = 'deciding';
     if (this.question && (this.question.type === key || (this.question.options || []).some(o => o.type === key))) this.question = null;
+    for (const [k, R] of Object.entries(this.brain.customRecipes || {})) if (R.makes === key) { delete this.brain.customRecipes[k]; delete RECIPES[k]; }
     unregisterCustomType(key);
     this.emit('types');
   },

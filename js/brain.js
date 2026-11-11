@@ -46,7 +46,7 @@ class Brain {
   }
 
   toJSON() {
-    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, skills: this.skills, tools: this.tools, spent: this.spent, seeds: this.seeds, farm: this.farm, garden: this.garden, asked: this.asked };
+    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, combos: this.combos, nextTinker: this.nextTinker, customRecipes: this.customRecipes, skills: this.skills, tools: this.tools, spent: this.spent, seeds: this.seeds, farm: this.farm, garden: this.garden, asked: this.asked };
   }
 
   key(t, v) { return t + ':' + v; }
@@ -160,10 +160,31 @@ class Brain {
     if (logPlay && logPlay.n >= 3 && this.addIdea('break', 'playing')) return 'The bark on that log is loose. I wonder if I could pull bits off… 🤔';
     const stickPlay = this.known('stick', 'play');
     if (stickPlay && stickPlay.n >= 2 && this.addIdea('craft', 'playing')) return 'These sticks stack up nicely. Maybe I could build something? 🤔';
-    if (this.hasIdea('craft') && this.skills.craft && Math.random() < 0.15) {
+    // Insights: with the right things in front of it, and a reason to, Pip can work out how to make them itself.
+    if ((this.hasIdea('craft') || this.hasIdea('break') || this.skills.craft) && Math.random() < 0.12) {
       for (const r of Object.keys(RECIPES)) {
-        if (['nest', 'digger', 'den', 'hut'].includes(r) && !this.hasIdea('recipe:' + r) && world.hasMaterials(r)) { this.addIdea('recipe:' + r, 'thinking'); return `What if I made ${RECIPES[r].label}? 🤔`; }
+        if (this.hasIdea('recipe:' + r) || RECIPES[r].custom || !world.hasMaterials(r)) continue;
+        const why = this.insightFor(r, lizard, world);
+        if (why) { this.addIdea('recipe:' + r, 'thinking'); this.addIdea('craft', 'thinking'); return why; }
       }
+    }
+    return null;
+  }
+
+  // Would this recipe occur to Pip right now? Returns the thought, or null.
+  insightFor(r, lizard, world) {
+    const n = lizard.needs, g = this.garden || {}, has = t => world.objects.some(o => o.type === t);
+    switch (r) {
+      case 'nest': case 'den': return n.energy < 70 ? `These sticks… I could make ${RECIPES[r].label} to sleep in! 🤔` : null;
+      case 'hut': return n.energy < 75 || (this.known('log', 'rest') && this.known('log', 'rest').n >= 2) ? 'Sleeping on a log isn\'t very comfy. What if I built a little house out of a log and sticks? 🤔' : null;
+      case 'digger': return this.hasIdea('dig') ? 'A pointy stick might help me dig! 🤔' : null;
+      case 'bucket': return this.hasIdea('carry') || g.needBucket ? 'I need something to carry water in… What if I made a bucket out of sticks? 🤔' : null;
+      case 'salad': return n.fullness < 75 ? 'Lettuce and berries… what if I mixed them together? Might be tastier! 🤔' : null;
+      case 'wrap': return n.fullness < 75 ? 'What if I rolled that cricket up in a lettuce leaf? 🤔' : null;
+      case 'skewer': return n.fullness < 75 ? 'What if I stuck a cricket on a stick? 🤔' : null;
+      case 'cricketbox': return this.known('cricket', 'eat') && this.hasIdea('plant') ? 'Crickets are so tasty. What if I made them a home so there\'d always be more? 🤔' : null;
+      case 'wool': return 'This cotton is so soft. I bet I could twist it into something… 🤔';
+      case 'bed': return has('hut') || this.hasIdea('recipe:hut') ? 'Soft wool and sticks… that\'s a bed! A proper comfy bed! 🤔' : null;
     }
     return null;
   }
@@ -206,6 +227,17 @@ class Brain {
         else if (!holding) push({ verb: 'grab', type: 'bucket', objId: bucket.id, x: bucket.x, y: bucket.y }, urgency);
         else if (!(bucket.full > 0)) push({ verb: 'fill', type: 'water', objId: well.id, x: well.x, y: well.y }, urgency);
         else push({ verb: 'tend', type: 'seedling', objId: dry.id, x: dry.x, y: dry.y }, urgency + 0.2);
+      }
+    }
+    // Tinkering: when bored, try sticking two things together and see what happens
+    if (this.hasIdea('craft') && needs.fun < 75 && now >= (this.nextTinker || 0) && !(lizard.refill && (lizard.refill.fullness || lizard.refill.hydration))) {
+      const w = lizard.worldRef, loose = mem.filter(m => w && w.get(m.id) && TINKERABLE(m.type));
+      const combos = this.combos || {};
+      for (let tries = 0; tries < 6 && loose.length >= 2; tries++) {
+        const a = loose[Math.floor(Math.random() * loose.length)], b = loose[Math.floor(Math.random() * loose.length)];
+        if (a.type === b.type || combos[[a.type, b.type].sort().join('+')] !== undefined) continue;
+        push({ verb: 'tinker', type: a.type, with: b.type, objId: a.id, x: a.x, y: a.y }, (0.25 + 0.5 * (100 - needs.fun) / 100) * ready);
+        break;
       }
     }
     if (this.hasIdea('break')) {
@@ -561,6 +593,7 @@ class Brain {
       if (c.verb === 'dig') return !s || !s.n ? 'Let me try scratching at the sand here…' : pick(['Maybe there\'s something buried here.', 'Time to dig.', 'I\'ll try digging over there.']);
       if (c.verb === 'plant') return !s || !s.hits ? `Let me try planting this ${TYPES[c.type].emoji} seed…` : pick([`I'll plant a ${TYPES[c.type].emoji} seed in my garden.`, 'Time to grow some more food.']);
       if (c.verb === 'tend') return this.hasIdea('carry') ? 'Time to water my plants. 🪣💧' : pick(['My seedling looks thirsty. I\'ll water it. 💧', 'Let me look after my little plant.']);
+      if (c.verb === 'tinker') return `What happens if I put the ${TYPES[c.type].emoji} and the ${TYPES[c.with].emoji} together? 🤔`;
       if (c.verb === 'grab') return 'I\'ll grab my bucket. 🪣';
       if (c.verb === 'fill') return 'Off to the well to fill my bucket. ⛲';
       if (c.verb === 'break') return !s || !s.hits ? 'Let me see if I can pull a bit off this log…' : 'I need more sticks. Back to the log.';
@@ -678,6 +711,8 @@ class Brain {
   }
 }
 
+// Loose things Pip can try combining
+function TINKERABLE(t) { return ['stick', 'shell', 'bone', 'flower', 'berry', 'lettuce', 'cotton', 'wool', 'ball', 'mushroom', 'mealworm', 'crab'].includes(t); }
 const INSTINCT = { fullness: 'eat', hydration: 'drink', warmth: 'bask', energy: 'rest' };
 // what looks drinkable / edible / warm / comfy to a lizard, before it knows for sure
 const LOOKS_LIKE = { drink: ['water'], eat: ['cricket', 'mealworm', 'lettuce', 'berry', 'crab', 'salad', 'wrap', 'skewer'], bask: ['lamp', 'rock'], rest: ['log', 'nest', 'den', 'hut', 'bed'] };

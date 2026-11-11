@@ -34,6 +34,10 @@ class Game {
     this.celebrate = 0;
     this.lizard.onThought = (text, kind) => this.addLog(text, kind);
     this.lizard.onAction = (t, v, d) => this.handleAction(t, v, d);
+    this.lizard.onTinker = (a, b, x, y) => tinker(this, a, b, x, y);
+    // recipes Pip invented by tinkering
+    for (const [k, R] of Object.entries(this.brain.customRecipes || {})) if (TYPES[R.makes]) registerCustomRecipe(k, R);
+    this.nextIdeaAsk = 0;
     // older saves could have had the water dish, lamp or log tidied away by mistake
     if (save && (save.v || 1) < 6) {
       // the little round grass patch became a meadow across the bottom of the tank

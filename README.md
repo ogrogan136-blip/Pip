@@ -13,6 +13,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - **Gets ideas over time.** After long hunger it wonders what's under the sand and learns to dig (finding crabs, shells and more). Playing with logs leads to pulling sticks off them, and sticks lead to building a nest, a den and a digging stick. Books and hints from you can plant these ideas too. Every skill starts clumsy and improves with practice.
 - **Grows its own food.** Food only turns up now and then. After reading "Grow Your Own Food", Pip keeps seeds from what it eats, plants them in a patch by the water, waters the seedlings, and grown plants keep producing food. It can build a cricket box where crickets breed, and it can plant foods it imagined itself.
 - **Carries water and builds a home.** The water comes from a stone well. To water crops Pip has to learn to make a bucket, fill it at the well and carry it over. A log is a poor bed: Pip can build a log cabin, and after reading "Cosy Homes" it grows cotton, spins it into wool and makes a comfy bed, the best sleep of all.
+- **Thinks things up itself.** Books are just a guide: with the right materials and a reason (hungry next to lettuce and a cricket, sleeping badly on a log), Pip works out recipes on its own. When bored it tinkers, combining two things to see what happens, and some combinations become brand-new inventions it can make again. It also asks you for ideas or for help when it's stuck.
 - **Thinks out loud.** The 💭 box and the thoughts log show its reasoning.
 
 ## What you can do
