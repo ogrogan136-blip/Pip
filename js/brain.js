@@ -50,7 +50,7 @@ class Brain {
   learnEffect(t, v, delta) {
     const k = this.key(t, v);
     let e = this.effects[k];
-    const first = !e;
+    const first = !e || e.n === 0;
     if (!e) e = this.effects[k] = { n: 0, d: {} };
     e.n++;
     const alpha = Math.max(1 / e.n, 0.3);
@@ -62,6 +62,73 @@ class Brain {
     this.stats.actions++;
     if (first) this.stats.discoveries++;
     return first;
+  }
+
+  // ---------- learning from books ----------
+  learnFromBook(t, v, truth) {
+    const k = this.key(t, v);
+    if (this.effects[k] && this.effects[k].n > 0) return;
+    const d = {};
+    for (const n of NEEDS) d[n] = truth[n] || 0;
+    this.effects[k] = { n: 0, d, book: true };
+    if (truth.seen) this.effects[k].seen = truth.seen;
+    this.stats.books = (this.stats.books || 0) + 1;
+  }
+
+  // What is on Pip's mind that a book could answer?
+  question(lizard, task, desperateFor) {
+    if (task && task.auto && task.words.some(w => { const m = this.meaning(w); return !m || !m.type; })) return { kind: 'word', val: 1.3 };
+    for (const [verb, val] of Object.entries(desperateFor)) {
+      // only worth looking up if Pip has no idea at all what helps (otherwise: go and find it)
+      const need = Object.keys(INSTINCT).find(n => INSTINCT[n] === verb);
+      const knowsOne = Object.entries(this.effects).some(([k, e]) => k.endsWith(':' + verb) && (e.d[need] || 0) >= 8);
+      if (!knowsOne) return { kind: 'need', verb, val: 0.4 + val * 0.8 };
+    }
+    for (const t of Object.keys(this.seen)) {
+      if (!TYPES[t] || TYPES[t].building) continue;
+      if (VERBS.some(v => !this.known(t, v))) return { kind: 'wonder', val: 0.45 };
+    }
+    return null;
+  }
+
+  // Pip reads a book. Returns what it says to itself afterwards.
+  readBook(lizard, world, task, desperateFor) {
+    const q = this.question(lizard, task, desperateFor);
+    const here = new Set(world.objects.map(o => o.type));
+    if (q && q.kind === 'word') {
+      for (const w of task.words) {
+        const W = this.wordRec(w);
+        const rt = W.types[task.type] || (W.types[task.type] = { s: 0, f: 0 }); rt.s += 2;
+        if (task.verb !== 'any') { const rv = W.verbs[task.verb] || (W.verbs[task.verb] = { s: 0, f: 0 }); rv.s += 2; }
+      }
+      const T = TYPES[task.type];
+      return `Found it in a dictionary! "${task.text}" means ${task.verb === 'any' ? 'go to' : VERB_INFO[task.verb].phrase} the ${T.emoji} ${T.name}. 📖`;
+    }
+    if (q && q.kind === 'need') {
+      const need = Object.keys(INSTINCT).find(n => INSTINCT[n] === q.verb);
+      const options = Object.keys(TYPES).filter(t => !this.known(t, q.verb) && truthOf(t, q.verb)[need] >= 8);
+      options.sort((a, b) => (here.has(b) ? 1 : 0) - (here.has(a) ? 1 : 0));
+      if (options.length) {
+        const t = options[0], T = TYPES[t];
+        this.learnFromBook(t, q.verb, truthOf(t, q.verb));
+        return `The book says you can ${VERB_INFO[q.verb].phrase} a ${T.emoji} ${T.name}. I should find one! 📖`;
+      }
+    }
+    // otherwise: read about something it has seen and wondered about
+    const pairs = [];
+    for (const t of Object.keys(this.seen)) {
+      if (!TYPES[t] || TYPES[t].building) continue;
+      for (const v of VERBS) if (!this.known(t, v)) pairs.push([t, v, EFFECTS[t] && EFFECTS[t][v] ? 3 : 1, here.has(t) ? 2 : 1]);
+    }
+    if (!pairs.length) return 'I think I\'ve read everything about the things I know. Cosy in here, though. 📚';
+    let total = pairs.reduce((s, p) => s + p[2] * p[3], 0), r = Math.random() * total, chosen = pairs[0];
+    for (const p of pairs) { r -= p[2] * p[3]; if (r <= 0) { chosen = p; break; } }
+    const [t, v] = chosen, T = TYPES[t], truth = truthOf(t, v);
+    this.learnFromBook(t, v, truth);
+    if (truth.health < -3) return `Whoa — the book says it hurts if you ${VERB_INFO[v].phrase} a ${T.emoji} ${T.name}. Glad I read that first! 📖`;
+    const good = NEEDS.some(n => n !== 'warmth' && truth[n] >= 4) || Math.abs(truth.warmth) >= 8;
+    if (good) return `Interesting! The book says if you ${VERB_INFO[v].phrase} a ${T.emoji} ${T.name}, it ${this.describeEffect(truth)}. I want to try that. 📖`;
+    return `Huh. Apparently there's no point trying to ${VERB_INFO[v].phrase} a ${T.emoji} ${T.name}. Good to know. 📖`;
   }
 
   // How much Pip cares about +1 of each need right now.
@@ -92,9 +159,12 @@ class Brain {
     const e = this.known(t, v);
     // Never tried this? If the thing has hurt me before, assume it might again.
     if (!e) return weights.health * 0.7 * this.danger(t) / 30;
+    // One try isn't proof: Pip trusts what it knows more after a couple of goes.
+    const conf = e.n === 0 ? 0.6 : Math.min(1, 0.5 + 0.25 * e.n);
     let val = 0;
     for (const n of NEEDS) {
       let d = e.d[n] || 0;
+      if (n !== 'health' || d > 0) d *= conf;
       if (d > 0 && n !== 'warmth') d = Math.min(d, 100 - needs[n]); // can't eat when already full
       if (n === 'warmth' && d > 0 && weights.warmth > 0) d = Math.min(d, Math.max(0, 85 - needs.warmth));
       val += weights[n] * d;
@@ -102,7 +172,7 @@ class Brain {
     return val / 30;
   }
 
-  satisfyCuriosity(now) { this.satedUntil = now + 30 + Math.random() * 30; }
+  satisfyCuriosity(now) { this.satedUntil = now + 60 + Math.random() * 60; }
 
   // 0..1: how ready Pip is to experiment again
   curiosityReadiness(now) {
@@ -112,9 +182,9 @@ class Brain {
 
   curiosityBonus(t, v, needs, now, desperation = 0) {
     const e = this.known(t, v);
-    const n = e ? e.n : 0;
+    const n = e ? Math.max(e.n, 1) : 0; // something it only read about counts as tried once
     const bored = (100 - needs.fun) / 100;
-    if (!e && this.danger(t) < -3) return 0; // not curious about things that hurt
+    if (this.danger(t) < -3 && !(e && e.n)) return 0; // not curious about things that hurt
     const idle = this.curiosityReadiness(now) * this.curiosity * (0.15 + 0.55 * bored);
     return (idle + desperation) / (1 + n * n * 3);
   }
@@ -223,7 +293,23 @@ class Brain {
       candidates.push({ kind: 'act', objId: mem ? mem.id : null, type: t, verb: v, x: mem ? mem.x : lizard.x, y: mem ? mem.y : lizard.y, parts, score });
     };
 
-    for (const mem of lizard.memory.values()) for (const v of VERBS) consider(mem, mem.type, v);
+    for (const mem of lizard.memory.values()) {
+      if (TYPES[mem.type] && TYPES[mem.type].building) {
+        // The book shop: somewhere to go when Pip has a question on its mind.
+        const q = this.question(lizard, task, desperateFor);
+        consider(mem, mem.type, 'read');
+        const c = candidates[candidates.length - 1];
+        c.q = q;
+        if (!this.known(mem.type, 'read')) { c.score += 0.4; c.parts.curious += 0.4; } // a whole building — what's in there?
+        else {
+          const ready = q && q.kind === 'wonder' ? this.curiosityReadiness(now) * this.curiosity : 1;
+          c.score += -c.parts.curious + (q ? q.val * ready : 0.02);
+          c.parts.curious = q ? q.val * ready : 0.02;
+        }
+        continue;
+      }
+      for (const v of VERBS) consider(mem, mem.type, v);
+    }
     consider(null, 'ground', 'rest'); // nap right here
 
     // Wandering: explore to find new things. More appealing when nothing known is useful.
@@ -232,7 +318,7 @@ class Brain {
     // ...and go searching when it needs something it doesn't know where to find
     candidates.push({ kind: 'wander', search: desperate > 0, score: ready * (0.06 + unseenBias + 0.15 * this.curiosity * (100 - needs.fun) / 100) + desperate * 1.2, parts: { curious: 0.2 } });
     // Sitting still: lizards spend a lot of time just watching the world.
-    candidates.push({ kind: 'idle', score: task || desperate > 0 ? 0.05 : 0.26, parts: {} });
+    candidates.push({ kind: 'idle', score: task || desperate > 0 ? 0.05 : 0.32, parts: {} });
 
     // Softmax choice among the good options (a bit of randomness = personality)
     candidates.sort((a, b) => b.score - a.score);
@@ -242,6 +328,7 @@ class Brain {
     let r = Math.random() * ws.reduce((a, b) => a + b, 0), pick = top[0];
     for (let i = 0; i < top.length; i++) { r -= ws[i]; if (r <= 0) { pick = top[i]; break; } }
 
+    pick.desperateFor = desperateFor;
     pick.reason = this.reasonFor(pick);
     pick.thought = this.thoughtFor(pick, lizard, task, weights);
     return pick;
@@ -265,45 +352,44 @@ class Brain {
     return best;
   }
 
+  // Pip's thoughts are short and plain, like a person muttering to themselves.
   thoughtFor(c, lizard, task, weights) {
-    const needLine = {
-      fullness: 'My tummy is rumbling 🍖.', hydration: 'I\'m so thirsty 💧.', energy: 'I\'m getting sleepy ⚡.',
-      warmth: 'Brrr, I\'m cold 🥶.', fun: 'I\'m bored 🥱.', health: 'I don\'t feel so good 🤕.', hot: 'Phew, I\'m too hot 🥵.',
-    };
-    const tn = this.topNeed(lizard.needs, weights);
-    const pre = tn ? needLine[tn] + ' ' : '';
     if (c.kind === 'idle') {
-      return pick([
-        'Just sitting here, watching the world go by. 🦎', 'Mmm. Nice and quiet. 😌', 'Thinking lizard thoughts… 💭',
-        'I\'ll stay still for a bit. 🪷', 'Watching… waiting… 👀', 'Hmm, what should I do next? 🤔',
-      ]);
+      return pick(['…', 'Nice and quiet.', 'Just watching.', 'This is a good spot.', 'Hmm.', 'I like it here.', 'What a day.']);
     }
-    if (c.kind === 'wander' && c.search) return `${pre}I need to find something that helps. Searching… 🔎`;
     if (c.kind === 'wander') {
-      return pick([
-        pre + 'Let\'s go exploring. 🧭', pre + 'I wonder what\'s over there… 👀',
-        pre + 'Maybe I\'ll find something new. 🔎', 'Just wandering around. 🦎',
-      ]);
+      if (c.search) return pick(['I need to find something… let me look around.', 'There must be something around here.']);
+      return pick(['Let\'s have a look around.', 'I wonder what\'s over there.', 'Time for a little walk.']);
     }
     const T = typeInfo(c.type), V = VERB_INFO[c.verb];
-    const thing = c.type === 'ground' ? 'right here' : `the ${T.emoji} ${T.name}`;
+    const name = `${T.emoji} ${T.name}`;
+    if (c.verb === 'read') {
+      if (c.reason === 'task' && !(c.q && c.q.kind === 'word')) return `"${task.text}" — off to the ${name}.`;
+      if (!this.known(c.type, 'read')) return `What's in that little shop? 🤔`;
+      if (c.q && c.q.kind === 'word') return `"${task.text}"? I don't know what that means. Maybe there's a book about it. 📖`;
+      if (c.q && c.q.kind === 'need') return pick(['I don\'t know what would help. I\'ll go look it up.', 'There must be a book about this.']);
+      return pick(['I\'ve been wondering about something. Time for a book. 📖', 'I feel like reading.', 'Let\'s see what I can find out at the book shop.']);
+    }
     switch (c.reason) {
-      case 'task': {
-        const b = this.taskBelief(task.words, c.type, c.verb);
-        if (b > 0.5) return `You asked me to "${task.text}". I know this one — ${V.phrase} ${thing}! 💡`;
-        return `"${task.text}"… what does that mean? Maybe ${V.phrase} ${thing}? 🤔`;
-      }
+      case 'task':
+        if (this.taskBelief(task.words, c.type, c.verb) > 0.5) return `"${task.text}" — I know that one!`;
+        return `"${task.text}"? Hmm… maybe it means ${V.phrase} the ${name}?`;
       case 'praise':
-        return `My human liked it when I ${c.verb === 'rest' ? 'rested on' : V.phrase} the ${T.emoji}. Let's do it again! 😊`;
+        return `My human likes it when I ${V.phrase} the ${name}.`;
       case 'curious':
-        if (!this.known(c.type, c.verb)) return `Hmm… what happens if I ${V.phrase} ${thing}? 🤔`;
-        return `Let me try to ${V.phrase} ${thing} again, just to be sure. 🧐`;
-      default: {
-        const e = this.known(c.type, c.verb);
-        const why = e ? this.describeEffect(e.d) : '';
-        if (c.type === 'ground') return pre + 'I\'ll take a nap right here. 😴';
-        return `${pre}${V.phrase[0].toUpperCase() + V.phrase.slice(1)} ${thing} — last time it ${why}.`;
-      }
+        if (c.type === 'ground') return 'Maybe I\'ll just lie down for a bit.';
+        if (!this.known(c.type, c.verb)) return pick([`I wonder what happens if I ${V.phrase} the ${name}…`, `Never tried to ${V.phrase} the ${name}. Why not?`]);
+        if (this.known(c.type, c.verb).n === 0) return `The book said something about the ${name}. Let me see for myself.`;
+        return `Maybe I'll ${V.phrase} the ${name} again and see.`;
+      default:
+        if (c.type === 'ground') return pick(['I\'m tired. Nap time. 😴', 'Just a little nap…']);
+        return pick({
+          eat: [`I'm hungry. That ${name} looks good.`, `Snack time.`, `Mmm, ${name}. Yes please.`],
+          drink: ['I need a drink.', 'Thirsty. Off to the water.'],
+          bask: [`Brr. I want to warm up by the ${name}.`, 'Time to soak up some heat.'],
+          rest: [`I'm tired. The ${name} is a good spot for a nap.`, 'I could use a rest.'],
+          play: [`I'm bored. Let's play with the ${name}!`, `The ${name} is always fun.`],
+        }[c.verb]);
     }
   }
 
@@ -351,7 +437,7 @@ class Brain {
     const byType = {};
     for (const [k, e] of Object.entries(this.effects)) {
       const [t, v] = k.split(':');
-      (byType[t] || (byType[t] = [])).push({ verb: v, n: e.n, d: e.d, seen: e.seen });
+      (byType[t] || (byType[t] = [])).push({ verb: v, n: e.n, d: e.d, seen: e.seen, book: !!e.book && e.n === 0 });
     }
     return byType;
   }

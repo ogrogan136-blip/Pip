@@ -9,6 +9,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - **Starts out knowing nothing.** It doesn't know a cricket is food or a cactus hurts. It tries things out of curiosity (eat, drink, bask, rest, play) and remembers how each one made it feel.
 - **Uses what it learned** to decide what to do next, depending on what it needs most right now. When it's hungry it goes for food it knows works; when it's bored it explores and experiments.
 - **Learns to avoid** things that hurt it, and even steers around them.
+- **Reads books.** When something is on its mind (a word it doesn't know, a need it can't solve, a thing it wonders about), it walks into the 📚 book shop and looks it up.
 - **Thinks out loud.** The 💭 box and the thoughts log show its reasoning.
 
 ## What you can do

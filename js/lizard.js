@@ -112,9 +112,9 @@ class Lizard {
           this.plan.y = clamp(this.y + Math.sin(a) * r, 40, WORLD_H - 40);
         }
         this.think(this.plan.thought, this.plan.reason);
-        if (this.plan.kind === 'idle') { this.state = 'idling'; this.timer = 5 + Math.random() * 8; this.speed = 0; break; }
+        if (this.plan.kind === 'idle') { this.state = 'idling'; this.timer = 8 + Math.random() * 10; this.speed = 0; break; }
         // take a moment to think before setting off
-        this.state = 'considering'; this.timer = 1.2 + Math.random() * 1.5;
+        this.state = 'considering'; this.timer = 1.5 + Math.random() * 2;
         if (this.plan.x !== undefined) this.lookAt = Math.atan2(this.plan.y - this.y, this.plan.x - this.x);
         break;
       }
@@ -138,9 +138,10 @@ class Lizard {
         let obj = null;
         if (p.objId) {
           obj = world.get(p.objId);
-          if (obj && dist(this.x, this.y, obj.x, obj.y) < VISION) { p.x = obj.x; p.y = obj.y; }
+          const door = TYPES[p.type].building ? 38 : 0; // walk to the front door
+          if (obj && dist(this.x, this.y, obj.x, obj.y) < VISION) { p.x = obj.x; p.y = obj.y + door; }
         }
-        const reachDist = p.objId ? this.reach + TYPES[p.type].size * 0.6 : 8;
+        const reachDist = !p.objId ? 8 : TYPES[p.type].building ? 10 : this.reach + TYPES[p.type].size * 0.6;
         const d = dist(this.x, this.y, p.x, p.y);
         if (p.kind === 'act' && p.type === 'ground') { this.startAction(null, p); break; }
         if (d < reachDist) {
@@ -197,8 +198,8 @@ class Lizard {
     this.state = 'acting';
     this.speed = 0;
     this.actObj = obj;
-    this.timer = { rest: 8, bask: 6, play: 4, drink: 3, eat: 2.5 }[plan.verb] || 3;
-    if (obj) { this.heading = Math.atan2(obj.y - this.y, obj.x - this.x); obj.held = true; }
+    this.timer = { rest: 8, bask: 6, play: 4, drink: 3, eat: 2.5, read: 9 }[plan.verb] || 3;
+    if (obj) { this.heading = Math.atan2(obj.y - this.y, obj.x - this.x); obj.held = !TYPES[obj.type].building; }
   }
 
   finishAction(world, brain, task) {
@@ -206,16 +207,27 @@ class Lizard {
     const obj = this.actObj && world.get(this.actObj.id);
     if (obj) obj.held = false;
     if (p.type !== 'ground' && !obj) { this.state = 'deciding'; return; }
-    const delta = world.interact(this, obj, p.verb);
-    const first = brain.learnEffect(p.type, p.verb, delta);
-    const r = brain.reactionFor(p.type, p.verb, delta, first);
+    let delta, r;
+    if (p.verb === 'read') {
+      // Inside the book shop: look up whatever was on its mind
+      delta = { fullness: 0, hydration: 0, energy: -1, warmth: 0, fun: 6, health: 0 };
+      this.needs.fun = clamp(this.needs.fun + 6, 0, 100);
+      const firstVisit = brain.learnEffect(p.type, 'read', delta);
+      const text = brain.readBook(this, world, task, p.desperateFor || {});
+      r = { mood: 'happy', text: firstVisit ? 'It\'s full of books! ' + text : text };
+      brain.satisfyCuriosity(world.time);
+    } else {
+      delta = world.interact(this, obj, p.verb);
+      const first = brain.learnEffect(p.type, p.verb, delta);
+      r = brain.reactionFor(p.type, p.verb, delta, first);
+    }
     this.think(r.text, r.mood);
     this.setMood(r.mood);
     this.lastAction = { type: p.type, verb: p.verb, time: world.time };
     if (this.onAction) this.onAction(p.type, p.verb, delta);
     if (p.reason === 'curious') brain.satisfyCuriosity(world.time);
     this.state = 'pausing';
-    this.timer = 2.5 + Math.random() * 2;
+    this.timer = 4 + Math.random() * 3;
   }
 
   steer(dt, tx, ty, world, brain) {
@@ -223,6 +235,18 @@ class Lizard {
     // steer around things Pip has learned are painful (like cacti)
     const painful = brain.painfulTypes();
     for (const o of world.objects) {
+      if (TYPES[o.type].building) {
+        // walk around buildings (and up to the front door when going in)
+        const isTarget = this.plan && o.id === this.plan.objId;
+        const d = dist(this.x, this.y, o.x, o.y);
+        if (d > 80 || (isTarget && this.y > o.y + 20)) continue;
+        const away = Math.atan2(this.y - o.y, this.x - o.x);
+        let perp = away + Math.PI / 2;
+        if (Math.cos(perp) * (tx - this.x) + Math.sin(perp) * (ty - this.y) < 0) perp -= Math.PI;
+        const push = (80 - d) / 80;
+        desired = Math.atan2(Math.sin(desired) + (Math.sin(away) * 1.2 + Math.sin(perp) * 1.6) * push, Math.cos(desired) + (Math.cos(away) * 1.2 + Math.cos(perp) * 1.6) * push);
+        continue;
+      }
       if (!painful.has(o.type)) continue;
       const d = dist(this.x, this.y, o.x, o.y);
       if (d > 60 || (this.plan && o.id === this.plan.objId)) continue;
@@ -235,9 +259,11 @@ class Lizard {
     let diff = desired - this.heading;
     while (diff > Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
-    this.heading += clamp(diff, -4 * dt, 4 * dt) + Math.sin(this.anim * 9) * 0.6 * dt;
-    const target = this.maxSpeed() * (Math.abs(diff) > 1.4 ? 0.4 : 1);
-    this.speed += clamp(target - this.speed, -220 * dt, 160 * dt);
+    // ease into turns and slow down on arrival, so Pip moves smoothly
+    this.heading += clamp(diff * 4 * dt, -3 * dt, 3 * dt);
+    const left = dist(this.x, this.y, tx, ty);
+    const target = this.maxSpeed() * (Math.abs(diff) > 1.4 ? 0.35 : 1) * clamp(left / 50, 0.3, 1);
+    this.speed += clamp(target - this.speed, -150 * dt, 90 * dt);
     this.x = clamp(this.x + Math.cos(this.heading) * this.speed * dt, 12, WORLD_W - 12);
     this.y = clamp(this.y + Math.sin(this.heading) * this.speed * dt, 12, WORLD_H - 12);
     this.moveBody(dt);

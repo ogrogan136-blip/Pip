@@ -10,6 +10,8 @@ class Game {
   constructor(save) {
     this.world = new World(save && save.world);
     this.world.objects.forEach(o => { o.held = false; });
+    // older saves: the book shop is new, so build one
+    if (save && !save.bookshop && !this.world.objects.some(o => o.type === 'bookstore')) this.world.add('bookstore', 470, 85);
     this.brain = new Brain(save && save.brain);
     this.lizard = new Lizard(save && save.lizard);
     this.task = save && save.task ? new Task(save.task) : null;
@@ -125,6 +127,6 @@ class Game {
 
   // ---- save / load ----
   toJSON() {
-    return { v: 1, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory };
+    return { v: 2, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory };
   }
 }

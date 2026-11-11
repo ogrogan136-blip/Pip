@@ -26,6 +26,7 @@ const VERB_INFO = {
   bask:  { icon: '☀️', phrase: 'bask on',    ing: 'basking on' },
   rest:  { icon: '💤', phrase: 'rest on',    ing: 'resting on' },
   play:  { icon: '🤸', phrase: 'play with',  ing: 'playing with' },
+  read:  { icon: '📖', phrase: 'read at',    ing: 'reading at' }, // only at the book shop
 };
 
 // What can be placed in the world. `food` = disappears when eaten.
@@ -43,6 +44,7 @@ const TYPES = {
   ball:     { emoji: '⚽', name: 'ball',       size: 14, rolls: true },
   cactus:   { emoji: '🌵', name: 'cactus',     size: 20 },
   flower:   { emoji: '🌼', name: 'flower',     size: 13, food: true },
+  bookstore: { emoji: '📚', name: 'book shop', size: 40, building: true, words: ['bookshop', 'book', 'shop', 'store', 'library'] },
 };
 // 'ground' is a pseudo-object: Pip can nap wherever it is.
 const GROUND = { emoji: '🟫', name: 'ground', size: 0 };
@@ -99,6 +101,7 @@ class World {
     this.add('ball', 600, 180);
     this.add('cactus', 330, 330);
     this.add('mushroom', 680, 380);
+    this.add('bookstore', 470, 85);
   }
 
   toJSON() {
@@ -227,6 +230,16 @@ class World {
     delta.seen = seen;
     return delta;
   }
+}
+
+// What the books say: the real effect of doing verb to type.
+function truthOf(type, verb) {
+  const base = (EFFECTS[type] && EFFECTS[type][verb]) || {};
+  const d = {};
+  for (const n of NEEDS) d[n] = base[n] || 0;
+  if (type === 'lamp' && verb === 'bask') d.warmth += 18;
+  if (type === 'water' && verb === 'play') d.seen = 'splash';
+  return d;
 }
 
 // How Pip describes what it saw happen

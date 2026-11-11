@@ -194,14 +194,14 @@
           const effs = NEEDS.filter(n => Math.abs(e.d[n] || 0) >= 2).map(n => `${needShort[n]}${e.d[n] > 0 ? '+' : ''}${Math.round(e.d[n])}`);
           const score = NEEDS.reduce((s, n) => s + (e.d[n] || 0) * (n === 'health' ? 3 : n === 'energy' && e.d[n] < 0 ? 0.3 : 1), 0);
           const cls = (e.d.health || 0) < -2 || score < -3 ? 'bad' : score > 4 ? 'good' : '';
-          const saw = e.seen && SEEN_ICON[e.seen] ? SEEN_ICON[e.seen] + ' ' : '';
-          return `<span class="chip ${cls}" title="tried ${e.n}×">${e.verb} ${saw}${effs.length ? effs.join(' ') : (saw ? '' : '· nothing')}</span>`;
+          const saw = (e.book ? '📖 ' : '') + (e.seen && SEEN_ICON[e.seen] ? SEEN_ICON[e.seen] + ' ' : '');
+          return `<span class="chip ${cls}" title="${e.book ? 'read about it in a book' : 'tried ' + e.n + '×'}">${e.verb} ${saw}${effs.length ? effs.join(' ') : (saw ? '' : '· nothing')}</span>`;
         }).join('');
         return `<div class="row"><span class="e" title="${T.name}">${T.emoji}</span><div>${chips}</div></div>`;
       }).join('');
     }
     const s = game.brain.stats;
-    $('stats').textContent = `· ${s.actions} things tried · ${s.tasksDone} tasks done`;
+    $('stats').textContent = `· ${s.actions} things tried · ${s.books || 0} read in books · ${s.tasksDone} tasks done`;
     const words = Object.keys(game.brain.words).map(w => [w, game.brain.meaning(w)]).filter(([, m]) => m && (m.type || m.verb));
     $('words').innerHTML = words.length ? words.map(([w, m]) => {
       const parts = [];
@@ -240,14 +240,14 @@
   }
 
   // ---------- main loop ----------
-  const STEP = 1 / 30;
+  const STEP = 1 / 60;
   let acc = 0, last = performance.now(), slowTimer = 0, saveTimer = 0;
   function frame(now) {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     acc += dt * speed;
     let steps = 0;
-    while (acc >= STEP && steps < 400) { game.step(STEP); acc -= STEP; steps++; }
+    while (acc >= STEP && steps < 800) { game.step(STEP); acc -= STEP; steps++; }
     if (acc > STEP) acc = 0;
     renderer.draw(game, ui, dt);
     renderNeeds();

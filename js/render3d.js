@@ -154,6 +154,35 @@ function buildModel(type) {
       for (let i = 0; i < 14; i++) add(mesh(cyl(0.2, 0.6, 3, 4), mat('#f4ecd0'), Math.cos(i) * 8.5, 16 + i * 2.4, Math.sin(i) * 8.5)).rotation.z = Math.cos(i) * 1.4;
       break;
     }
+    case 'bookstore': {
+      // a little shop: door faces the front of the tank
+      add(mesh(new THREE.BoxGeometry(92, 46, 60), mat('#f1e3c4', { roughness: 0.9 }), 0, 23, 0));
+      const roof = add(mesh(new THREE.ConeGeometry(74, 30, 4), mat('#b5483a', { roughness: 0.8, flatShading: true }), 0, 61, 0));
+      roof.rotation.y = Math.PI / 4; roof.scale.z = 0.72;
+      add(mesh(new THREE.BoxGeometry(22, 32, 2), mat('#3a2a1c'), 0, 16, 30.2)).castShadow = false;       // open doorway
+      add(mesh(new THREE.BoxGeometry(3, 32, 3), mat('#7a5230'), -12, 16, 30.6));
+      add(mesh(new THREE.BoxGeometry(3, 32, 3), mat('#7a5230'), 12, 16, 30.6));
+      add(mesh(new THREE.BoxGeometry(27, 3, 3), mat('#7a5230'), 0, 33, 30.6));
+      const winMat = new THREE.MeshStandardMaterial({ color: '#ffe9a8', emissive: '#ffc95c', emissiveIntensity: 0.3, roughness: 0.3 });
+      for (const sx of [-30, 30]) {
+        add(mesh(new THREE.BoxGeometry(18, 16, 1.5), winMat, sx, 24, 30.3)).castShadow = false;
+        add(mesh(new THREE.BoxGeometry(20, 2, 3), mat('#7a5230'), sx, 15, 30.8));
+        // books on the windowsill
+        ['#c0392b', '#2e86c1', '#27ae60', '#f39c12'].forEach((c, i) => add(mesh(new THREE.BoxGeometry(2.4, 7 + (i % 2) * 2, 4), mat(c), sx - 5 + i * 3.2, 20 + (i % 2), 31.4)));
+      }
+      const sc = document.createElement('canvas'); sc.width = 256; sc.height = 64;
+      const sx2 = sc.getContext('2d');
+      sx2.fillStyle = '#2f6b3a'; sx2.fillRect(0, 0, 256, 64);
+      sx2.fillStyle = '#fff6dc'; sx2.font = 'bold 44px Georgia, serif'; sx2.textAlign = 'center'; sx2.textBaseline = 'middle';
+      sx2.fillText('BOOKS', 128, 34);
+      const sign = add(new THREE.Mesh(new THREE.PlaneGeometry(44, 11), new THREE.MeshStandardMaterial({ map: new THREE.CanvasTexture(sc), roughness: 0.7 })));
+      sign.position.set(0, 41, 30.4);
+      add(mesh(new THREE.BoxGeometry(26, 0.8, 14), mat('#8a3b2e'), 0, 0.4, 39)).castShadow = false; // doormat
+      // a stack of books outside
+      ['#2e86c1', '#f39c12', '#8e44ad'].forEach((c, i) => { const b = add(mesh(new THREE.BoxGeometry(11, 3, 8), mat(c), 22, 1.5 + i * 3, 40)); b.rotation.y = i * 0.35; });
+      g.userData.winMat = winMat;
+      break;
+    }
     case 'flower': {
       add(mesh(cyl(0.8, 0.8, 16, 6), mat('#4b9a3c'), 0, 8, 0));
       for (let i = 0; i < 8; i++) {
@@ -375,7 +404,7 @@ class Renderer3D {
       if (!m) {
         m = buildModel(o.type);
         m.userData.id = o.id;
-        m.rotation.y = (o.id * 2.39) % (Math.PI * 2);
+        if (!TYPES[o.type].building) m.rotation.y = (o.id * 2.39) % (Math.PI * 2);
         if (TYPES[o.type].heat) {
           const glow = new THREE.Mesh(new THREE.PlaneGeometry(TYPES[o.type].heat * 2, TYPES[o.type].heat * 2), new THREE.MeshBasicMaterial({ map: this.glowTex, transparent: true, depthWrite: false }));
           glow.rotation.x = -Math.PI / 2; glow.position.y = 0.6;
@@ -402,6 +431,7 @@ class Renderer3D {
         }
       }
       if (m.userData.water) m.userData.water.position.y = 8.4 + Math.sin(o.t * 2) * 0.2;
+      if (m.userData.winMat) m.userData.winMat.emissiveIntensity = 0.25 + (1 - world.daylight) * 1.6 + (this.reading === o.id ? 0.8 : 0);
       if (m.userData.light) m.userData.light.intensity = 1.2 + (1 - world.daylight) * 1.2 + Math.sin(o.t * 13) * 0.03;
     }
     for (const [id, m] of this.objMeshes) if (!alive.has(id)) { this.scene.remove(m); this.objMeshes.delete(id); }
@@ -452,16 +482,20 @@ class Renderer3D {
     if (this.tongue.visible) { const len = 8 + Math.sin(L.tongue * 40) * 4; this.tongueStem.scale.y = len; this.tongueStem.position.x = len / 2; this.tongue.children.slice(1).forEach(f => { f.position.x = len + 1; }); }
 
     // legs with planted feet (same gait as before)
-    if (!L.feet) L.feet = [2, 2, 6, 6].map((si, j) => ({ si, side: j % 2 ? 1 : -1, x: s[si].x, y: s[si].y }));
+    if (!L.feet) L.feet = [2, 2, 6, 6].map((si, j) => ({ si, side: j % 2 ? 1 : -1, x: s[si].x, y: s[si].y, tx: s[si].x, ty: s[si].y, lift: 0 }));
     L.feet.forEach((f, k) => {
       const a = s[f.si], b = s[f.si + 1];
       const ang = Math.atan2(a.y - b.y, a.x - b.x);
       const nx = Math.cos(ang + f.side * Math.PI / 2), ny = Math.sin(ang + f.side * Math.PI / 2);
       const fwd = f.si === 2 ? 7 : -2;
       const ix = a.x + nx * 18 + Math.cos(ang) * fwd, iy = a.y + ny * 18 + Math.sin(ang) * fwd;
-      let lift = 0;
-      if (dist(f.x, f.y, ix, iy) > 13) { f.x = ix + Math.cos(ang) * 6; f.y = iy + Math.sin(ang) * 6; f.lift = 1; }
-      if (f.lift > 0) { f.lift = Math.max(0, f.lift - 0.2); lift = f.lift * 5; }
+      // feet stay planted, then swing smoothly to the next spot (left/right take turns)
+      const other = L.feet[k ^ 1];
+      if (dist(f.tx, f.ty, ix, iy) > 14 && !(other.lift > 0.05)) { f.tx = ix + Math.cos(ang) * 7; f.ty = iy + Math.sin(ang) * 7; f.lift = 1; }
+      if (dist(f.x, f.y, ix, iy) > 40) { f.x = f.tx = ix; f.y = f.ty = iy; }
+      f.x += (f.tx - f.x) * 0.3; f.y += (f.ty - f.y) * 0.3;
+      f.lift = Math.max(0, f.lift - 0.12);
+      const lift = Math.sin(f.lift * Math.PI) * 4;
       const hip = toV(a.x + nx * 7, a.y + ny * 7, 6 * flat);
       const foot = toV(f.x, f.y, 1.2 + lift);
       const knee = toV((a.x + f.x) / 2 + nx * 4, (a.y + f.y) / 2 + ny * 4, 9 * flat + lift);
@@ -587,7 +621,10 @@ class Renderer3D {
     this.hemi.intensity = 0.2 + 0.35 * d;
     this.hemi.color.setHSL(0.6 - d * 0.5, 0.4, 0.5 + 0.35 * d);
 
+    const inside = lizard.state === 'acting' && lizard.plan && lizard.plan.verb === 'read';
+    this.reading = inside ? lizard.plan.objId : null;
     this.syncObjects(world);
+    this.lizardGroup.visible = !inside;
     this.updateLizard(lizard, game);
     this.spawnFx(world);
     this.updateFx(dt);
@@ -624,7 +661,7 @@ class Renderer3D {
       if (p.kind === 'wander') icon = '🧭';
       else if (p.kind === 'idle') icon = '💭';
       else icon = VERB_INFO[p.verb].icon + (p.type === 'ground' ? '' : typeInfo(p.type).emoji) + (p.reason === 'curious' ? '?' : p.reason === 'task' ? '📋' : '');
-    } else if (L.state === 'acting' && p) icon = VERB_INFO[p.verb].icon;
+    } else if (L.state === 'acting' && p) icon = p.verb === 'read' ? '📖 …' : VERB_INFO[p.verb].icon;
     else if (L.mood === 'happy') icon = '💚';
     else if (L.mood === 'curious') icon = '❓';
     if (L.state === 'fainted') icon = '💫';
