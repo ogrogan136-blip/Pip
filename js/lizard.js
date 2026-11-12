@@ -387,6 +387,23 @@ class Lizard {
       brain.skill('shelter').n++; brain.skill('shelter').hits++;
       text = first ? 'Ahh, it\'s nice and dry in here. Much better! ☺️' : world.raining ? 'Staying in until the rain stops. 🌧️' : 'The rain stopped! Back outside. 🌤️';
       mood = 'happy';
+      // stuck in the book shop while it rains? might as well read!
+      if (obj && TYPES[obj.type].library) {
+        let read;
+        try {
+          if (!brain.known(obj.type, 'read')) {
+            brain.learnEffect(obj.type, 'read', { fun: 6 });
+            read = `While I waited for the rain, I found things with pages in here… ${brain.readLibrary(this, world, null)} I can learn things in here! 🤯`;
+          } else if (Math.random() < 0.5) read = 'Rainy day… ' + brain.readLibrary(this, world, null).replace(/^Reading/, 'reading');
+          else { read = null; text = pick(['Listening to the rain on the roof… 🌧️', 'Cosy in here with the books. 📚', 'Pitter-patter, pitter-patter… 🌧️']); }
+        } catch (e) { console.error(e); read = null; }
+        if (read) {
+          text = read; brain.spark('seasons', 0.02);
+          this.needs.fun = clamp(this.needs.fun + 4, 0, 100);
+          brain.nextReadAt = world.time + 120; // reading in the rain doesn't spoil the next proper visit much
+          if (this.onRead) this.onRead(read);
+        }
+      }
       if (world.raining) { this.state = 'acting'; this.timer = 25; this.inside = !!(obj && TYPES[obj.type].building); this.think(text, 'happy'); return; }
     } else if (p.verb === 'putdown') {
       this.keepCarry = false; this.drop(world);

@@ -1005,7 +1005,7 @@ class Renderer3D {
       else if (p.kind === 'idle') icon = '💭';
       else if (!VERB_INFO[p.verb]) icon = '🏃' + (typeInfo(p.type) ? typeInfo(p.type).emoji : '');
       else icon = VERB_INFO[p.verb].icon + (p.type === 'ground' ? '' : typeInfo(p.type).emoji) + (p.reason === 'curious' ? '?' : p.reason === 'task' ? '📋' : '');
-    } else if (L.state === 'acting' && p) icon = p.verb === 'read' ? '📖 …' : L.inside ? '…' : VERB_INFO[p.verb].icon;
+    } else if (L.state === 'acting' && p) icon = p.verb === 'read' || (p.verb === 'shelter' && TYPES[p.type] && TYPES[p.type].library) ? '📖 …' : L.inside ? '…' : (VERB_INFO[p.verb] || { icon: '…' }).icon;
     else if (L.mood === 'happy') icon = '💚';
     else if (L.mood === 'curious') icon = '❓';
     if (L.state === 'fainted') icon = '💫';
