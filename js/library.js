@@ -28,6 +28,9 @@ const BOOKS = {
     ['Recipe: Bug on a Stick. Push a cricket onto a stick. Crunchy!', { idea: 'recipe:skewer' }],
     ['Eating somewhere warm helps you digest.'],
     ['Flowers make a nice snack, but they\'re mostly fluff.', { learn: ['flower', 'eat'] }],
+    ['Cook raw bugs on a hot stove: roasted crickets and grilled mealworms are much tastier and more filling!', { ideas: ['cook'] }],
+    ['Crab roasts beautifully, and warm berries turn into sweet jam.', { ideas: ['cook'] }],
+    ['Recipe: Bug Stew. Cook a cricket, a mealworm and some lettuce together on a stove. The best meal there is!', { ideas: ['cook', 'recipe:stew'] }],
   ] },
   lizards: { title: 'All About Lizards', emoji: '🦎', pages: [
     ['Lizards are cold-blooded. They need heat to get going.', { learn: ['lamp', 'bask'] }],
@@ -263,6 +266,20 @@ TYPES.skewer = { emoji: '🍢', name: 'bug on a stick', size: 14, food: true, hi
 EFFECTS.salad = { eat: { fullness: 45, hydration: 18, fun: 12 } };
 TYPES.salad.cooked = true;
 EFFECTS.skewer = { eat: { fullness: 48, fun: 10 } };
+
+// Cooking on the stone stove: raw food goes in, something much better comes out.
+const COOKS = { cricket: 'roastcricket', mealworm: 'grubgrill', crab: 'roastcrab', berry: 'jam' };
+TYPES.roastcricket = { emoji: '🍗', name: 'roasted cricket', size: 12, food: true, hidden: true, cooked: true };
+TYPES.grubgrill = { emoji: '🌭', name: 'grilled mealworm', size: 12, food: true, hidden: true, cooked: true };
+TYPES.roastcrab = { emoji: '🍤', name: 'roasted crab', size: 13, food: true, hidden: true, cooked: true };
+TYPES.jam = { emoji: '🍯', name: 'warm berry jam', size: 11, food: true, hidden: true, cooked: true };
+TYPES.stew = { emoji: '🍲', name: 'bug stew', size: 15, food: true, hidden: true, cooked: true };
+EFFECTS.roastcricket = { eat: { fullness: 50, fun: 12 } };
+EFFECTS.grubgrill = { eat: { fullness: 42, fun: 10 } };
+EFFECTS.roastcrab = { eat: { fullness: 58, fun: 12 } };
+EFFECTS.jam = { eat: { fullness: 26, hydration: 6, fun: 18 } };
+EFFECTS.stew = { eat: { fullness: 75, hydration: 18, fun: 16, health: 4 } };
+RECIPES.stew = { needs: { cricket: 1, mealworm: 1, lettuce: 1 }, makes: 'stew', label: 'a bug stew', food: true, stove: true };
 TYPES.skewer.cooked = true;
 
 Object.assign(Brain.prototype, Reading);

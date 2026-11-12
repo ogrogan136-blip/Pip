@@ -149,6 +149,36 @@ function buildModel(type, o) {
       g.userData.fire = fire;
       break;
     }
+    case 'roastcricket': {
+      const glaze = mat('#7a3f14', { roughness: 0.3 });
+      const body = add(mesh(new THREE.CapsuleGeometry(3.4, 9, 4, 10), glaze, 0, 4, 0)); body.rotation.z = Math.PI / 2;
+      add(mesh(sphere(3.6), glaze, 7, 4.5, 0));
+      for (const s2 of [-1, 1]) { const leg = add(mesh(cyl(0.7, 0.7, 10, 6), mat('#5a2c0e'), -3, 5.5, s2 * 4)); leg.rotation.x = s2 * 0.6; leg.rotation.z = -1; }
+      for (let i = 0; i < 3; i++) add(mesh(new THREE.BoxGeometry(1, 0.3, 6.4), mat('#2a1406'), -4 + i * 3.5, 7.3, 0));
+      break;
+    }
+    case 'grubgrill': {
+      for (let i = 0; i < 7; i++) { const sg = add(mesh(sphere(2.9 - Math.abs(i - 3) * 0.2, 10), mat(i % 2 ? '#a0612a' : '#8c5020', { roughness: 0.35 }), (i - 3) * 3.6, 2.9, Math.sin(i) * 0.8)); }
+      for (let i = 0; i < 3; i++) add(mesh(new THREE.BoxGeometry(0.5, 0.3, 5.2), mat('#2a1406'), -5 + i * 5, 5.6, 0));
+      break;
+    }
+    case 'roastcrab': {
+      const sh = add(mesh(sphere(8, 14), mat('#e2531f', { roughness: 0.35 }), 0, 5, 0)); sh.scale.set(1.25, 0.55, 1);
+      for (const s2 of [-1, 1]) add(mesh(sphere(3.6, 10), mat('#f07a3a'), 8, 5, s2 * 8));
+      add(mesh(cyl(9, 9, 1, 16), mat('#e9e2d0'), 0, 0.5, 0)).castShadow = false;
+      break;
+    }
+    case 'jam': {
+      add(mesh(cyl(5, 5, 9, 14), new THREE.MeshStandardMaterial({ color: '#b3122a', roughness: 0.15, transparent: true, opacity: 0.85 }), 0, 4.5, 0));
+      add(mesh(cyl(5.4, 5.4, 2, 14), mat('#f2e6c9'), 0, 9.6, 0));
+      break;
+    }
+    case 'stew': {
+      add(mesh(new THREE.SphereGeometry(11, 18, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), mat('#7a746b', { side: THREE.DoubleSide, roughness: 0.9 }), 0, 10, 0));
+      const soup = add(mesh(cyl(10, 10, 0.6, 18), mat('#8a5226', { roughness: 0.2 }), 0, 8.5, 0)); soup.castShadow = false;
+      for (let i = 0; i < 6; i++) add(mesh(sphere(1.6, 6), mat(['#6b4a24', '#7fbf45', '#d9a441'][i % 3]), Math.cos(i) * 5, 9, Math.sin(i) * 5));
+      break;
+    }
     case 'stone': {
       let sd2 = 3; const r2 = () => (sd2 = (sd2 * 16807) % 2147483647) / 2147483647;
       for (let i = 0; i < 2; i++) { const st = add(mesh(jitterGeo(new THREE.DodecahedronGeometry(5 - i * 1.5, 1), 0.9, 5 + i), mat(i ? '#b7afa2' : '#9e978b', { roughness: 0.95, flatShading: true }), i * 4 - 2, 2 + i * 2.2, r2() * 2)); st.scale.y = 0.42; st.rotation.y = i * 1.3; }

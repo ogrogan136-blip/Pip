@@ -229,7 +229,7 @@ class Lizard {
     this.state = 'acting';
     this.speed = 0;
     this.actObj = obj;
-    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, chip: 9, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4, tinker: 10, stash: 3, wear: 4, unwear: 3, shelter: 25, putdown: 2 }[plan.verb] || 4;
+    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, chip: 9, cook: 8, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4, tinker: 10, stash: 3, wear: 4, unwear: 3, shelter: 25, putdown: 2 }[plan.verb] || 4;
     if (plan.verb === 'read') this.timer = 20;
     this.longSleep = plan.verb === 'rest' && this.needs.energy < 40;
     if (this.longSleep) this.timer = 26; // a proper sleep
@@ -383,8 +383,22 @@ class Lizard {
       text = res ? res.text : 'Hmm.';
       mood = res && res.ok ? 'happy' : 'meh';
     } else if (p.verb === 'grab') {
-      if (obj) { this.pickUp(obj); this.keepCarry = true; text = obj.type === 'bucket' ? 'Got my bucket. 🪣' : obj.type === 'umbrella' ? 'Got my umbrella. Now the rain can\'t get me! ☂️' : `Got a ${TYPES[obj.type].emoji}. Off to the food store!`; mood = 'happy'; }
+      if (obj) { this.pickUp(obj); this.keepCarry = true; text = obj.type === 'bucket' ? 'Got my bucket. 🪣' : p.forCook ? `Got a ${TYPES[obj.type].emoji}. To the stove! 🔥` : obj.type === 'umbrella' ? 'Got my umbrella. Now the rain can\'t get me! ☂️' : `Got a ${TYPES[obj.type].emoji}. Off to the food store!`; mood = 'happy'; }
       else text = 'Where did it go?';
+    } else if (p.verb === 'cook') {
+      const held = this.carrying && world.get(this.carrying);
+      if (obj && held && COOKS[held.type]) {
+        const outType = COOKS[held.type], raw = TYPES[held.type];
+        world.remove(held.id); this.carrying = null; this.keepCarry = false;
+        const o = world.add(outType, obj.x + 28 + (Math.random() - 0.5) * 16, obj.y + 28 + (Math.random() - 0.5) * 10);
+        if (o) world.addFx('sparkle', o.x, o.y);
+        world.addFx('chips', obj.x, obj.y);
+        brain.learnFromBook(outType, 'eat', truthOf(outType, 'eat')); // Pip made it, so it knows it's food
+        const s2 = brain.skill('cook'); s2.n++; s2.hits++;
+        text = s2.hits === 1 ? `Sizzle! I put the ${raw.emoji} ${raw.name} on the stove and it turned into a ${TYPES[outType].emoji} ${TYPES[outType].name}! It smells AMAZING! 🔥🤩` : `Sizzle… one ${TYPES[outType].emoji} ${TYPES[outType].name}, coming up! 🔥`;
+        mood = 'happy';
+        brain.spark('cooking', 0.05);
+      } else text = 'Hmm, I dropped what I was going to cook.';
     } else if (p.verb === 'stash') {
       const held = this.carrying && world.get(this.carrying);
       if (obj && held) {

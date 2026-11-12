@@ -182,6 +182,11 @@ class Brain {
       if (coldNow) this.addIdea('recipe:stove', 'thinking');
       return coldNow ? 'I need something warmer than the lamp… Stones hold heat. What if I knocked some off that rock and built a stove? 🤔' : 'That rock is crumbly at the edges. What if I knocked some stones off it? 🤔';
     }
+    // a warm stove and raw food: what if they went together?
+    if (!this.hasIdea('cook') && world.objects.some(o => o.type === 'stove') && lizard.needs.fullness < 75 && world.objects.some(o => COOKS[o.type]) && Math.random() < 0.08) {
+      this.addIdea('cook', 'thinking');
+      return 'That stove is SO hot… What if I put a cricket on it? Would it taste different? 🤔';
+    }
     const needSticks = (this.hasIdea('stockpile') && !world.objects.some(o => o.type === 'store')) || (world.season === 'winter' && lizard.needs.warmth < 30);
     if (needSticks && !this.hasIdea('break') && world.objects.some(o => o.type === 'log')) { this.addIdea('break', 'thinking'); this.addIdea('craft', 'thinking'); return 'I\'ll need sticks to build something… That log has loose bark. Maybe I can pull bits off! 🤔'; }
     lizard.hungryTime = lizard.needs.fullness < 35 ? (lizard.hungryTime || 0) + secs : 0;
@@ -223,6 +228,7 @@ class Brain {
       case 'wool': return 'This cotton is so soft. I bet I could twist it into something… 🤔';
       case 'store': return this.hasIdea('stockpile') ? 'Winter is coming… I need somewhere to keep food. What if I built a little shed out of sticks? 🤔' : null;
       case 'stove': return (world.season === 'winter' || world.season === 'autumn') && n.warmth < 45 ? 'Brrr! The lamp isn\'t enough in this cold. What if I piled up stones into a stove? 🔥🤔' : null;
+      case 'stew': return this.hasIdea('cook') && n.fullness < 75 ? 'A cricket, a mealworm and lettuce… what if I cooked them ALL together on the stove? 🍲🤔' : null;
       case 'hammer': return this.skills.break && this.skills.break.n >= 3 ? 'Pulling with my claws is hard work. What if I tied a stone to a stick, like a hammer? 🔨🤔' : null;
       case 'umbrella': return lizard.wet > 30 ? 'What if I held a big leaf over my head, like a little roof? 🍃🤔' : null;
       case 'sweater': return n.warmth < 50 ? 'This wool is so warm… what if I wrapped it around myself? Like a sweater! 🤔' : null;
@@ -303,6 +309,17 @@ class Brain {
     }
     const umbHeld = lizard.carrying && ww && ww.get(lizard.carrying);
     if (umbHeld && umbHeld.type === 'umbrella' && ww && !ww.raining) push({ verb: 'putdown', type: 'ground', objId: null, x: lizard.x, y: lizard.y }, 0.6);
+    // cooking: take raw food to the stove
+    const stoveObj = ww && ww.objects.find(o => o.type === 'stove');
+    if (this.hasIdea('cook') && stoveObj) {
+      const held = lizard.carrying && ww.get(lizard.carrying);
+      const hungry = needs.fullness < 70;
+      if (held && COOKS[held.type]) push({ verb: 'cook', type: 'stove', objId: stoveObj.id, x: stoveObj.x, y: stoveObj.y + 26 }, 0.95);
+      else if (hungry || (ww.season === 'autumn' && this.hasIdea('stockpile'))) {
+        const raw = mem.filter(m => COOKS[m.type] && ww.get(m.id) && !ww.get(m.id).carried).sort((a, b) => dist(lizard.x, lizard.y, a.x, a.y) - dist(lizard.x, lizard.y, b.x, b.y))[0];
+        if (raw) push({ verb: 'grab', type: raw.type, forCook: true, objId: raw.id, x: raw.x, y: raw.y }, 0.45 + (100 - needs.fullness) / 120);
+      }
+    }
     // clothes: on when cold, off when hot
     const sweater = ww && ww.objects.find(o => o.type === 'sweater' && !o.carried);
     const hotOut = ww && (ww.season === 'summer' || ww.weather === 'heatwave');
@@ -325,7 +342,7 @@ class Brain {
         if (!this.hasIdea('recipe:' + r)) continue;
         if (!Object.entries(R.needs).every(([t, n]) => count(t) >= n)) continue;
         const world = lizard.worldRef, exists = t => world ? world.objects.some(o => o.type === t) : count(t) > 0;
-        const want = r === 'hammer' ? !this.tools.hammer : r === 'umbrella' ? !exists('umbrella') : r === 'store' ? !exists('store') && this.hasIdea('stockpile') : r === 'stove' ? !exists('stove') : r === 'sweater' ? !exists('sweater') && !lizard.wearing : r === 'bucket' ? !exists('bucket') : r === 'hut' ? !exists('hut') : r === 'bed' ? !exists('bed') : r === 'wool' ? !exists('wool') && !exists('bed') && this.hasIdea('recipe:bed') : R.tool ? !this.tools[R.tool] && this.hasIdea('dig') : R.farm ? count(R.makes) === 0 : R.food ? count(R.makes) === 0 && needs.fullness < 75 : count(R.makes) === 0;
+        const want = r === 'stew' ? needs.fullness < 75 && !exists('stew') : r === 'hammer' ? !this.tools.hammer : r === 'umbrella' ? !exists('umbrella') : r === 'store' ? !exists('store') && this.hasIdea('stockpile') : r === 'stove' ? !exists('stove') : r === 'sweater' ? !exists('sweater') && !lizard.wearing : r === 'bucket' ? !exists('bucket') : r === 'hut' ? !exists('hut') : r === 'bed' ? !exists('bed') : r === 'wool' ? !exists('wool') && !exists('bed') && this.hasIdea('recipe:bed') : R.tool ? !this.tools[R.tool] && this.hasIdea('dig') : R.farm ? count(R.makes) === 0 : R.food ? count(R.makes) === 0 && needs.fullness < 75 : count(R.makes) === 0;
         if (!want) continue;
         const first = mem.find(m => m.type === Object.keys(R.needs)[0]);
         push({ verb: 'craft', type: R.makes || 'stick', recipe: r, objId: first.id, x: first.x, y: first.y }, 0.85);
@@ -644,7 +661,7 @@ class Brain {
       const helps = (e && ((starving && (e.d.fullness || 0) > 3) || (parched && (e.d.hydration || 0) > 3)))
         || (c.kind === 'act' && !e && ((starving && c.verb === 'eat') || (parched && c.verb === 'drink')))
         || (c.kind === 'act' && c.type === 'store' && c.verb === 'eat' && c.parts.need > 0)
-        || (c.kind === 'wander' && c.search) || (c.kind === 'skill' && (c.verb === 'dig' || (c.verb === 'craft' && RECIPES[c.recipe] && RECIPES[c.recipe].food)));
+        || (c.kind === 'wander' && c.search) || (c.kind === 'skill' && (c.verb === 'dig' || c.verb === 'cook' || c.forCook || (c.verb === 'craft' && RECIPES[c.recipe] && RECIPES[c.recipe].food)));
       if (!helps) c.score *= 0.25;
     }
     // while doing a task for its human, Pip's own projects can wait (unless they're urgent)
@@ -704,6 +721,8 @@ class Brain {
       if (c.verb === 'wear') return 'Brrr. Time to put my sweater on. 🧥';
       if (c.verb === 'unwear') return 'Phew, too hot for a sweater!';
       if (c.verb === 'chip') return !this.skills.chip || !this.skills.chip.hits ? 'Let me try knocking a bit off this rock…' : this.tools.hammer ? 'Time to knock some stones off with my hammer. 🔨' : 'I need some stones. Back to the rock.';
+      if (c.verb === 'cook') return 'To the stove! Time to cook. 🔥';
+      if (c.verb === 'grab' && c.forCook) return `That ${TYPES[c.type].emoji} would be even better cooked. 🔥`;
       if (c.verb === 'tinker') return `What happens if I put the ${TYPES[c.type].emoji} and the ${TYPES[c.with].emoji} together? 🤔`;
       if (c.verb === 'grab') return 'I\'ll grab my bucket. 🪣';
       if (c.verb === 'fill') return 'Off to the well to fill my bucket. ⛲';
@@ -750,7 +769,7 @@ class Brain {
     const pending = Object.keys(this.ideas).filter(i => !this.skills[i]);
     if (pending.length && Math.random() < 0.5) {
       const i = pending[0];
-      const lines = { dig: 'I keep thinking about what\'s under the sand…', break: 'That log… I bet bits would come off.', craft: 'I could build something. But what?', plant: 'I want to grow my own food. I need some seeds…', tend: 'Plants need water too, I think.', shelter: 'Next time it rains I\'m going indoors.', stockpile: 'I should save some food for winter…', chip: 'That rock looks crumbly…', summerhot: 'Sweaters are for winter, not summer.', carry: 'I need something to carry water in.' };
+      const lines = { dig: 'I keep thinking about what\'s under the sand…', break: 'That log… I bet bits would come off.', craft: 'I could build something. But what?', plant: 'I want to grow my own food. I need some seeds…', tend: 'Plants need water too, I think.', shelter: 'Next time it rains I\'m going indoors.', stockpile: 'I should save some food for winter…', chip: 'That rock looks crumbly…', cook: 'I wonder what else I could cook…', summerhot: 'Sweaters are for winter, not summer.', carry: 'I need something to carry water in.' };
       if (lines[i]) return lines[i];
       if (i.startsWith('recipe:') && RECIPES[i.slice(7)]) return `I still want to try making ${RECIPES[i.slice(7)].label}.`;
     }

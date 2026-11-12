@@ -339,6 +339,7 @@ class World {
     return n;
   }
   hasMaterials(recipe) {
+    if (RECIPES[recipe].stove && !this.objects.some(o => o.type === 'stove')) return false;
     return Object.entries(RECIPES[recipe].needs).every(([t, n]) => this.objects.filter(o => o.type === t).length >= n);
   }
   craft(recipe, x, y) {
@@ -353,6 +354,8 @@ class World {
     const hut = this.objects.find(o => o.type === 'hut');
     if (R.makes === 'bed' && hut) { x = hut.x - 78; y = hut.y + 14; }
     if (R.makes === 'store') { x = hut ? hut.x - 150 : 640; y = hut ? hut.y - 20 : 250; }
+    const stove = this.objects.find(o => o.type === 'stove');
+    if (R.stove && stove) { x = stove.x + 30; y = stove.y + 26; }
     if (R.makes === 'stove') { x = hut ? hut.x + 10 : x; y = hut ? hut.y + 75 : y; }
     this.addFx('chips', x, y);
     if (R.makes) { const o = this.add(R.makes, x, y); if (o) this.addFx('sparkle', o.x, o.y); }
