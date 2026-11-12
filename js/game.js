@@ -36,6 +36,7 @@ class Game {
     this.lizard.onAction = (t, v, d) => this.handleAction(t, v, d);
     this.lizard.onTinker = (a, b, x, y) => tinker(this, a, b, x, y);
     this.initLife(save);
+    this.initFriend(save);
     // recipes Pip invented by tinkering
     for (const [k, R] of Object.entries(this.brain.customRecipes || {})) if (TYPES[R.makes]) registerCustomRecipe(k, R);
     this.nextIdeaAsk = (save && save.nextIdeaAsk) || 0;
@@ -92,6 +93,7 @@ class Game {
     }
     if (this.celebrate > 0) this.celebrate -= dt;
     this.lifeStep(dt);
+    this.friendStep(dt);
     this.askTimer -= dt;
     if (this.askTimer <= 0) {
       const idea = this.brain.ponder(this.lizard, this.world, 5);
@@ -167,6 +169,7 @@ class Game {
 
   handleAction(t, v, d) {
     this.brain.sparkFrom(t, v, d);
+    if (t === 'pal' && v === 'play' && this.friend) this.playedTogether(this.brain, this.friendBrain, this.lizard.name, this.friend.name);
     const task = this.task;
     if (!task) return;
     if (task.matches(t, v)) { this.taskSuccess(t, v); return; }
@@ -222,7 +225,7 @@ class Game {
 
   // ---- save / load ----
   toJSON() {
-    return { v: 7, savedAt: Date.now(), nextAsk: this.nextAsk, nextIdeaAsk: this.nextIdeaAsk, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question, daydreams: this.daydreams, freeImagination: this.freeImagination, diary: this.diary, today: this.today, goals: this.goals, lastDay: this.lastDay, visitorTimer: this.visitorTimer };
+    return { v: 7, savedAt: Date.now(), nextAsk: this.nextAsk, nextIdeaAsk: this.nextIdeaAsk, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question, daydreams: this.daydreams, freeImagination: this.freeImagination, friend: this.friend ? { body: this.friend, brain: this.friendBrain } : null, friendArrival: this.friendArrival, diary: this.diary, today: this.today, goals: this.goals, lastDay: this.lastDay, visitorTimer: this.visitorTimer };
   }
 }
 

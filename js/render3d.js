@@ -607,6 +607,7 @@ class Renderer3D {
 
     this.bubble = document.createElement('div'); this.bubble.className = 'bubble'; overlay.appendChild(this.bubble);
     this.status = document.createElement('div'); this.status.className = 'status-emoji'; overlay.appendChild(this.status);
+    this.friendTag = document.createElement('div'); this.friendTag.className = 'bubble friend-tag'; this.friendTag.hidden = true; overlay.appendChild(this.friendTag);
     this.resize();
     window.addEventListener('resize', () => this.resize());
   }
@@ -723,6 +724,7 @@ class Renderer3D {
   syncObjects(world) {
     const alive = new Set();
     for (const o of world.objects) {
+      if (TYPES[o.type] && TYPES[o.type].friend) continue; // drawn as the creatures themselves
       alive.add(o.id);
       let m = this.objMeshes.get(o.id);
       // a seedling that grew up: rebuild its model
@@ -1027,6 +1029,7 @@ class Renderer3D {
     this.syncObjects(world);
     this.lizardGroup.visible = !inside;
     this.updateLizard(lizard, game);
+    this.updateFriend(game, dt);
     this.spawnFx(world);
     this.updateFx(dt);
 
@@ -1051,6 +1054,52 @@ class Renderer3D {
     this.updateCamera(lizard);
     this.r.render(this.scene, this.camera);
     this.drawOverlay(game);
+  }
+
+  // Shelly the tortoise: a domed shell of plates, a head that pokes out, stubby legs
+  buildFriend() {
+    const g = new THREE.Group(), add = o => (g.add(o), o);
+    const shellM = mat('#7a6a3a', { roughness: 0.7 }), plateM = mat('#9c8a4f', { roughness: 0.6, flatShading: true }), skinM = mat('#8fa86a', { roughness: 0.7 });
+    const shell = add(mesh(new THREE.SphereGeometry(16, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), shellM, 0, 4, 0)); shell.scale.set(1.15, 0.85, 1);
+    for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2, rr = i === 0 ? 0 : 10; const pl = add(mesh(new THREE.CylinderGeometry(4.6, 5, 1.2, 6), plateM, Math.cos(a) * rr * 1.1, i === 0 ? 17.6 : 13.5, Math.sin(a) * rr)); if (i) { pl.lookAt(Math.cos(a) * 40, 40, Math.sin(a) * 40); pl.rotateX(Math.PI / 2); } }
+    add(mesh(new THREE.TorusGeometry(16.5, 1.4, 6, 28), mat('#5f522c'), 0, 4.4, 0)).rotation.x = Math.PI / 2;
+    const head = new THREE.Group();
+    const skull = mesh(sphere(5.2, 14), skinM, 0, 0, 0); skull.scale.set(1.3, 0.95, 1); head.add(skull);
+    for (const s2 of [-1, 1]) { head.add(mesh(sphere(1.4, 8), mat('#111'), 3.5, 1.8, s2 * 3.2)); head.add(mesh(sphere(0.45, 6), mat('#fff'), 4.2, 2.4, s2 * 3.2)); }
+    head.add(mesh(new THREE.TorusGeometry(1.6, 0.35, 6, 10, Math.PI), mat('#3f4a2a'), 6.2, -1.3, 0)).rotation.z = Math.PI;
+    head.position.set(20, 8, 0); g.add(head);
+    const neck = add(mesh(cyl(3.2, 3.6, 8, 10), skinM, 15, 6.5, 0)); neck.rotation.z = Math.PI / 2;
+    const legs = [];
+    for (const [x, z] of [[9, 11], [9, -11], [-9, 11], [-9, -11]]) { const l = add(mesh(cyl(3.2, 3.6, 7, 10), skinM, x, 2.5, z)); legs.push(l); }
+    add(mesh(new THREE.ConeGeometry(1.8, 6, 8), skinM, -19, 3, 0)).rotation.z = Math.PI / 2;
+    this.scene.add(g);
+    this.friendRig = { g, head, legs, skinM };
+  }
+
+  updateFriend(game, dt) {
+    const F = game.friend;
+    if (!F) { if (this.friendRig) this.friendRig.g.visible = false; this.friendTag.hidden = true; return; }
+    if (!this.friendRig) this.buildFriend();
+    const R = this.friendRig;
+    R.g.visible = !F.inside;
+    R.g.position.copy(toV(F.x, F.y));
+    R.g.rotation.y = -F.heading;
+    R.g.scale.setScalar((F.growth || 0.85) * 1.2);
+    const walk = F.speed > 3 ? Math.sin(performance.now() / 120) : 0;
+    R.legs.forEach((l, i) => { l.position.y = 2.5 + Math.max(0, (i % 3 === 0 ? walk : -walk)) * 1.8; });
+    const sleeping = F.state === 'acting' && F.plan && F.plan.verb === 'rest';
+    const eating = F.state === 'acting' && F.plan && F.plan.verb === 'eat';
+    R.head.position.x = sleeping ? 14 : 20; // tucks her head in to sleep
+    R.head.position.y = 8 + (eating ? Math.sin(performance.now() / 90) * 1.5 : 0);
+    R.skinM.color.set((F.wet || 0) > 30 ? '#6f8a50' : '#8fa86a');
+    // her name tag with what she's up to
+    const sp = this.screenPos(F.x, F.y, 34);
+    const p = F.plan;
+    const icon = sleeping ? '💤' : F.state === 'acting' && p ? (VERB_INFO[p.verb] || { icon: '…' }).icon : F.state === 'moving' && p && p.type && typeInfo(p.type) && p.type !== 'ground' ? '→' + typeInfo(p.type).emoji : '';
+    this.friendTag.hidden = sp.behind || F.inside;
+    const txt = `🐢 ${F.name} ${icon}`;
+    if (this.friendTag.textContent !== txt) this.friendTag.textContent = txt;
+    this.friendTag.style.transform = `translate(${sp.x - 30}px, ${sp.y - 40}px)`;
   }
 
   drawOverlay(game) {

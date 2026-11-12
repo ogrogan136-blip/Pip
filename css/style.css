@@ -237,3 +237,7 @@ body.photo .topbar, body.photo .side, body.photo .thought-card, body.photo .pale
 body.photo .layout { grid-template-columns: minmax(0, 1fr); max-width: none; }
 .photo-bar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; gap: 8px; line-height: 1.2; }
 .photo-bar button { background: rgba(255,255,255,.9); color: #222; }
+
+.friend-tag { font-size: 12px; padding: 2px 8px; background: rgba(255,248,225,.92); }
+.friend-tag::after { display: none; }
+.log li.k-friend { color: #8a6d1f; }

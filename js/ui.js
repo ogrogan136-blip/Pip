@@ -423,6 +423,20 @@
       (L.shedding || 0) > 0 ? '<div>✨ Shedding its skin</div>' : '',
     ].join('');
     if (html !== lifeSig) { lifeSig = html; $('about').innerHTML = html; }
+    // Shelly
+    const F = game.friend;
+    $('friendPanel').hidden = !F;
+    if (F) {
+      const fb = game.friendBrain, n = F.needs;
+      const mini = (icon, v) => `<div class="row2"><span>${icon}</span><div class="bar"><i style="width:${Math.round(v)}%"></i></div><span class="hint" style="margin:0">${Math.round(v)}</span></div>`;
+      $('friendName').textContent = F.name;
+      $('friendStage').textContent = `· ${F.overallMood()} ${Math.floor(F.age || 0)} days with you`;
+      const fhtml = [mini('🍖', n.fullness), mini('💧', n.hydration), mini('⚡', n.energy), mini('🎾', n.fun), mini('❤️', n.health),
+        `<div>💭 ${escapeHtml(F.thought || '')}</div>`,
+        `<div>💚 Loves: gardening, greens & flowers, long naps · 🙅 Not keen on: eating bugs</div>`,
+        `<div>📚 Reading: ${readingLevelName((fb.reading || {}).literacy || 0)} · learned ${fb.stats.taught || 0} things from ${game.lizard.name}, taught ${game.brain.stats.taught || 0}</div>`].join('');
+      if ($('friendInfo').innerHTML !== fhtml) $('friendInfo').innerHTML = fhtml;
+    }
     const ch = b.lastChoices || [];
     $('mind').innerHTML = ch.length ? ch.map(c => `<div class="opt ${c.chosen ? 'chosen' : ''}"><span>${c.chosen ? '👉 ' : ''}${escapeHtml(c.label)} <span class="why">${c.why ? '(' + ({ need: 'needs it', curious: 'curious', task: 'your task', praise: 'you liked it' }[c.why]) + ')' : ''}</span></span><div class="bar"><i style="width:${Math.round(c.chance * 100)}%"></i></div><span class="hint" style="margin:0">${Math.round(c.chance * 100)}%</span></div>`).join('') : '<div class="empty">Pip hasn\'t decided anything yet.</div>';
     const done = GOALS.filter(([id]) => game.goals[id]).length;

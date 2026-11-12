@@ -65,6 +65,7 @@ class Lizard {
     const warm = clamp(this.needs.warmth / 60, 0, 1);
     let s = 58 * (0.35 + 0.65 * warm);
     if (this.needs.energy < 12) s *= 0.55;
+    s *= this.speedFactor || 1;
     s *= 0.8 + 0.25 * (this.growth || 1);
     if (this.sick > 40) s *= 0.7;
     return s;
@@ -74,6 +75,7 @@ class Lizard {
     const range = VISION * (world.isNight ? 0.6 : 1);
     let sawNew = null;
     for (const o of world.objects) {
+      if (o.id === this.selfMarker) continue;
       if (dist(this.x, this.y, o.x, o.y) > range) continue;
       this.memory.set(o.id, { id: o.id, type: o.type, x: o.x, y: o.y, t: world.time });
       if (!brain.seen[o.type]) { brain.seen[o.type] = world.time; sawNew = o; }
@@ -293,16 +295,17 @@ class Lizard {
     return !!T && !T.building && (T.custom || ['stick', 'shell', 'bone', 'flower', 'berry'].includes(o.type));
   }
   pickUp(o) {
+    if (o.carried && o.carriedBy && o.carriedBy !== this.name) return false; // the other one has it
     if (this.carrying && this.carrying !== o.id) this.drop(this.worldRef);
     this.carrying = o.id;
-    o.held = true; o.carried = true; o.vx = o.vy = 0;
+    o.held = true; o.carried = true; o.carriedBy = this.name; o.vx = o.vy = 0;
   }
   // put it down where Pip is: next time Pip wants it, it has to come back for it
   drop(world) {
     this.keepCarry = false;
     if (!this.carrying || !world) return;
     const o = world.get(this.carrying);
-    if (o) { o.held = false; o.carried = false; o.lift = 0; o.swing = 0; o.x = clamp(this.x + Math.cos(this.heading) * 20, 15, WORLD_W - 15); o.y = clamp(this.y + Math.sin(this.heading) * 20, 15, WORLD_H - 15); }
+    if (o) { o.held = false; o.carried = false; o.carriedBy = null; o.lift = 0; o.swing = 0; o.x = clamp(this.x + Math.cos(this.heading) * 20, 15, WORLD_W - 15); o.y = clamp(this.y + Math.sin(this.heading) * 20, 15, WORLD_H - 15); }
     this.carrying = null;
   }
   release() {

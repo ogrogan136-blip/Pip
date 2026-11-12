@@ -654,6 +654,13 @@ class Brain {
     const topping = lizard.refill && Object.keys(lizard.refill).length > 0;
     const P = this.personality || { laziness: 0.4, bravery: 0.5 };
     candidates.push({ kind: 'idle', score: task || desperate > 0 ? 0.05 : (topping ? 0.15 : 0.5) * (0.6 + P.laziness), parts: {} });
+    // hobbies and tastes: each creature enjoys different things
+    const H = this.hobbies;
+    if (H) for (const c of candidates) {
+      if (H.verbs[c.verb]) c.score *= H.verbs[c.verb];
+      if (H.likes.includes(c.type)) c.score += 0.2;
+      if (c.verb === 'eat' && H.dislikes.includes(c.type)) c.score -= needs.fullness < 15 ? 0.1 : 0.8;
+    }
     // personality: lazy lizards do fewer projects; timid ones try fewer unknown things
     for (const c of candidates) {
       if (c.kind === 'skill' && !['shelter', 'unwear', 'grab'].includes(c.verb)) c.score *= 1.2 - P.laziness * 0.5;

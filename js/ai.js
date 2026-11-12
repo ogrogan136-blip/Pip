@@ -277,8 +277,8 @@ function comboInvention(a, b) {
 
 function registerCustomRecipe(key, R) { RECIPES[key] = R; }
 
-function tinker(game, a, b, x, y) {
-  const brain = game.brain, w = game.world, A = TYPES[a], B = TYPES[b];
+function tinker(game, a, b, x, y, who) {
+  const brain = who || game.brain, w = game.world, A = TYPES[a], B = TYPES[b];
   if (!A || !B) return { ok: false, text: 'Hmm, where did it go?' };
   if (!w.objects.some(o => o.type === a) || !w.objects.some(o => o.type === b)) return { ok: false, text: `I need a ${A.emoji} and a ${B.emoji} to try that.` };
   brain.combos = brain.combos || {}; brain.customRecipes = brain.customRecipes || {};

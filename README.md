@@ -16,6 +16,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - **Thinks things up itself.** Books are just a guide: with the right materials and a reason (hungry next to lettuce and a cricket, sleeping badly on a log), Pip works out recipes on its own. When bored it tinkers, combining two things to see what happens, and some combinations become brand-new inventions it can make again. It also asks you for ideas or for help when it's stuck.
 - **Lives through the seasons.** Spring, summer, autumn and winter bring sun, rain, thunderstorms, heatwaves and snow. Crops grow in their own seasons, rain waters them, and nothing grows in winter. Pip learns (from a hungry winter, the Seasons book, or you) to build a food store and fill it in autumn, to build a stone stove that's warmer than the lamp, and to wear a woolly sweater in the cold, but not in summer.
 - **Has a life story.** Pip writes a diary entry each day, works towards 15 goals, grows from hatchling to grown-up (and sheds its skin), develops a personality and favourites, can fall ill from staying wet and cold or eating food that's gone off (mint and warm rest help), and gets visits from a food-stealing beetle and a friendly gecko. A panel shows what Pip is weighing up.
+- **Has a friend.** Shelly the tortoise moves in: her own brain, needs and reading, slow and steady, loves gardening, greens and naps, not keen on eating bugs. She and Pip play together, teach each other what they know, and both help with tasks.
 - **Thinks out loud.** The 💭 box and the thoughts log show its reasoning.
 
 ## What you can do
@@ -36,6 +37,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - `js/weather.js`: seasons and weather
 - `js/library.js`: the books, reading level and interests
 - `js/life.js`: diary, goals, personality, growing up, sickness, visitors
+- `js/friend.js`: Shelly the tortoise, playing together and sharing knowledge
 - `js/talk.js`: Pip's questions, understanding replies, custom things
 - `js/game.js`: tasks, training, saving
 - `js/render3d.js`: the 3D terrarium (three.js)
