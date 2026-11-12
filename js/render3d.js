@@ -179,6 +179,32 @@ function buildModel(type, o) {
       for (let i = 0; i < 6; i++) add(mesh(sphere(1.6, 6), mat(['#6b4a24', '#7fbf45', '#d9a441'][i % 3]), Math.cos(i) * 5, 9, Math.sin(i) * 5));
       break;
     }
+    case 'beetle': {
+      const sh = add(mesh(sphere(5, 12), mat('#1f3a2a', { roughness: 0.2, metalness: 0.4 }), 0, 3.5, 0)); sh.scale.set(1.4, 0.6, 1);
+      add(mesh(sphere(2.4, 10), mat('#142219', { roughness: 0.3 }), 7, 3, 0));
+      add(mesh(new THREE.BoxGeometry(12, 0.3, 0.4), mat('#0d1510'), 0, 5.2, 0));
+      for (const s2 of [-1, 1]) for (let i = 0; i < 3; i++) { const l = add(mesh(cyl(0.4, 0.3, 6, 4), mat('#0d1510'), -3 + i * 3, 1.8, s2 * 4.5)); l.rotation.x = s2 * 1.1; }
+      for (const s2 of [-1, 1]) { const a2 = add(mesh(cyl(0.25, 0.25, 6, 4), mat('#0d1510'), 10, 4.5, s2 * 1.5)); a2.rotation.z = -1.1; a2.rotation.x = s2 * 0.4; }
+      break;
+    }
+    case 'gecko': {
+      // a friendly visitor: a smaller, orange spotted lizard
+      const skin = mat('#e39a3b', { roughness: 0.5 }), spot = mat('#7a4a1a');
+      for (let i = 0; i < 9; i++) { const r = i === 0 ? 6 : Math.max(1.2, 6.5 - i * 0.6); const sg = add(mesh(sphere(r, 10), skin, -i * 5, r * 0.6, 0)); sg.scale.y = 0.6; if (i % 2 && i < 7) add(mesh(sphere(r * 0.3, 6), spot, -i * 5, r * 1.05, 0)); }
+      add(mesh(sphere(1.5, 8), mat('#111'), 3, 4.5, 3.4)); add(mesh(sphere(1.5, 8), mat('#111'), 3, 4.5, -3.4));
+      for (const [x, s2] of [[-6, 1], [-6, -1], [-20, 1], [-20, -1]]) { const l = add(mesh(cyl(1, 0.8, 9, 6), skin, x, 2, s2 * 6)); l.rotation.x = s2 * 1.2; }
+      break;
+    }
+    case 'mint': {
+      for (let i = 0; i < 9; i++) { const l = add(mesh(sphere(2.6, 8), mat(i % 2 ? '#3fae5a' : '#5cc56e', { roughness: 0.5 }), Math.cos(i * 2.4) * 3, 3 + (i % 3) * 2.2, Math.sin(i * 2.4) * 3)); l.scale.set(1.3, 0.35, 0.8); l.rotation.y = i * 2.4; }
+      add(mesh(cyl(0.4, 0.4, 8, 4), mat('#4b8a3c'), 0, 4, 0));
+      break;
+    }
+    case 'shed': {
+      const skinM = new THREE.MeshStandardMaterial({ color: '#e9efe1', roughness: 0.4, transparent: true, opacity: 0.7 });
+      for (let i = 0; i < 10; i++) { const r = Math.max(1, 6 - i * 0.5); const sg = add(mesh(sphere(r, 8), skinM, -i * 4.5, r * 0.3, Math.sin(i * 0.8) * 3)); sg.scale.y = 0.25; }
+      break;
+    }
     case 'stone': {
       let sd2 = 3; const r2 = () => (sd2 = (sd2 * 16807) % 2147483647) / 2147483647;
       for (let i = 0; i < 2; i++) { const st = add(mesh(jitterGeo(new THREE.DodecahedronGeometry(5 - i * 1.5, 1), 0.9, 5 + i), mat(i ? '#b7afa2' : '#9e978b', { roughness: 0.95, flatShading: true }), i * 4 - 2, 2 + i * 2.2, r2() * 2)); st.scale.y = 0.42; st.rotation.y = i * 1.3; }
@@ -369,7 +395,7 @@ function buildModel(type, o) {
         p.rotation.x = -Math.PI / 2; p.castShadow = false; p.receiveShadow = true; g.add(p);
       }
       // thousands of blades of grass, drawn in one go
-      const N = 2600, blades = new THREE.InstancedMesh(new THREE.ConeGeometry(0.7, 1, 3), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9 }), N);
+      const N = (Math.min(window.innerWidth, window.innerHeight) < 700) ? 1300 : 2600, blades = new THREE.InstancedMesh(new THREE.ConeGeometry(0.7, 1, 3), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.9 }), N);
       const dummy = new THREE.Object3D(), cols = ['#5f9433', '#7fb247', '#4a7f2a', '#8cc152', '#6aa13a'].map(c => new THREE.Color(c));
       let k = 0;
       for (let t = 0; t < N * 2 && k < N; t++) {
@@ -534,7 +560,8 @@ class Renderer3D {
     this.canvas = canvas;
     this.overlay = overlay;
     this.r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    this.r.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.small = Math.min(window.innerWidth, window.innerHeight) < 700; // phones get lighter settings
+    this.r.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.small ? 1.25 : 2));
     this.r.shadowMap.enabled = true;
     this.r.shadowMap.type = THREE.PCFSoftShadowMap;
     if ('outputEncoding' in this.r) this.r.outputEncoding = THREE.sRGBEncoding;
@@ -548,7 +575,7 @@ class Renderer3D {
     this.sun = new THREE.DirectionalLight('#fff3dc', 0.9);
     this.sun.position.set(-300, 700, 250);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
+    this.sun.shadow.mapSize.set(this.small ? 1024 : 2048, this.small ? 1024 : 2048);
     Object.assign(this.sun.shadow.camera, { left: -560, right: 560, top: 400, bottom: -400, near: 100, far: 1600 });
     this.sun.shadow.bias = -0.0008;
     this.scene.add(this.sun);
@@ -782,14 +809,18 @@ class Renderer3D {
     const acting = L.state === 'acting' && L.plan;
     const verb = acting ? L.plan.verb : null;
     const sleeping = verb === 'rest' || L.state === 'fainted';
-    const w = i => i === 0 ? 10 : i === 1 ? 7.5 : i < 7 ? 10.5 - (i - 2) * 0.3 : Math.max(1.5, 9 - (i - 6) * 0.85);
+    const gs = L.growth || 1; // bigger as Pip grows up
+    const w = i => gs * (i === 0 ? 10 : i === 1 ? 7.5 : i < 7 ? 10.5 - (i - 2) * 0.3 : Math.max(1.5, 9 - (i - 6) * 0.85));
     const wig = verb === 'play' ? Math.sin(L.anim * 18) * 4 : ['dig', 'break', 'craft'].includes(verb) ? Math.sin(L.anim * 22) * 2.2 : 0;
     const flat = verb === 'bask' ? 0.75 : 1;
     const breathe = 1 + Math.sin(L.anim * (sleeping ? 2 : 4)) * 0.03;
     const faded = L.state === 'fainted';
     // soaked Pip looks darker and shinier, and drips
     const wet = Math.min(1, (L.wet || 0) / 70);
-    this.skin.color.set(faded ? '#8a9a7a' : verb === 'bask' ? '#5cbf5f' : wet > 0.05 ? lerpColor('#4fae58', '#2f7a46', wet) : '#4fae58');
+    let skinCol = faded ? '#8a9a7a' : verb === 'bask' ? '#5cbf5f' : wet > 0.05 ? lerpColor('#4fae58', '#2f7a46', wet) : '#4fae58';
+    if ((L.sick || 0) > 10) skinCol = lerpColor(skinCol, '#a9b860', Math.min(0.6, L.sick / 100));
+    if ((L.shedding || 0) > 0) skinCol = lerpColor(skinCol, '#dfe8d8', Math.min(0.55, L.shedding / 40));
+    this.skin.color.set(skinCol);
     this.skin.roughness = 0.55 - wet * 0.4;
     if (wet > 0.3 && Math.random() < wet * 0.25) { const di = 2 + Math.floor(Math.random() * 6); this.addParticle(toV(s[di].x, s[di].y, 6), '#9fd3ff', 0.8, 10, 0.5); }
 
@@ -817,7 +848,8 @@ class Renderer3D {
     }
     // head
     const hx = s[0].x, hy = s[0].y;
-    this.head.position.copy(toV(hx, hy, 9 * flat));
+    this.head.position.copy(toV(hx, hy, 9 * flat * gs));
+    this.head.scale.setScalar(gs);
     this.head.rotation.set(0, -L.heading, 0);
     if (verb === 'eat' || verb === 'dig' || verb === 'break') this.head.rotation.z = -0.25 + Math.sin(L.anim * 14) * 0.2;
     else if (L.state === 'considering') this.head.rotation.z = 0.12;

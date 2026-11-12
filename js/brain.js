@@ -46,7 +46,7 @@ class Brain {
   }
 
   toJSON() {
-    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, winterHunger: this.winterHunger, winters: this.winters, combos: this.combos, nextTinker: this.nextTinker, customRecipes: this.customRecipes, skills: this.skills, tools: this.tools, spent: this.spent, seeds: this.seeds, farm: this.farm, garden: this.garden, asked: this.asked, askedNeed: this.askedNeed };
+    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, winterHunger: this.winterHunger, winters: this.winters, combos: this.combos, nextTinker: this.nextTinker, customRecipes: this.customRecipes, skills: this.skills, tools: this.tools, spent: this.spent, seeds: this.seeds, farm: this.farm, garden: this.garden, asked: this.asked, askedNeed: this.askedNeed, personality: this.personality };
   }
 
   key(t, v) { return t + ':' + v; }
@@ -148,11 +148,11 @@ class Brain {
     return null;
   }
   // Eating something that grew from a seed: keep the seed, once Pip knows to.
-  keepSeedOk(type) { const T = TYPES[type]; return !!T && !!T.food && !T.hops && !T.crawls && !T.wiggles && !['mushroom', 'salad', 'wrap', 'skewer'].includes(type); }
+  keepSeedOk(type) { const T = TYPES[type]; return !!T && !!T.food && !T.hops && !T.crawls && !T.wiggles && !T.cooked && !T.visitor && !['mushroom', 'salad', 'wrap', 'skewer', 'mint'].includes(type); }
   keepSeed(type) {
     const T = TYPES[type];
     if (!this.hasIdea('plant') || !T || !T.food || T.hops || T.crawls || T.wiggles) return false;
-    if (['mushroom', 'salad', 'wrap', 'skewer'].includes(type)) return false;
+    if (!this.keepSeedOk(type)) return false;
     this.seeds[type] = Math.min(5, (this.seeds[type] || 0) + 1);
     return true;
   }
@@ -652,7 +652,15 @@ class Brain {
     candidates.push({ kind: 'wander', search: desperate > 0, score: ready * (0.06 + unseenBias + 0.15 * this.curiosity * (100 - needs.fun) / 100) + desperate * 1.2, parts: { curious: 0.2 } });
     // Sitting still: lizards spend a lot of time just watching the world.
     const topping = lizard.refill && Object.keys(lizard.refill).length > 0;
-    candidates.push({ kind: 'idle', score: task || desperate > 0 ? 0.05 : topping ? 0.15 : 0.5, parts: {} });
+    const P = this.personality || { laziness: 0.4, bravery: 0.5 };
+    candidates.push({ kind: 'idle', score: task || desperate > 0 ? 0.05 : (topping ? 0.15 : 0.5) * (0.6 + P.laziness), parts: {} });
+    // personality: lazy lizards do fewer projects; timid ones try fewer unknown things
+    for (const c of candidates) {
+      if (c.kind === 'skill' && !['shelter', 'unwear', 'grab'].includes(c.verb)) c.score *= 1.2 - P.laziness * 0.5;
+      if (c.kind === 'act' && !this.known(c.type, c.verb) && c.parts.curious) { c.score += c.parts.curious * (P.bravery - 0.5) * 0.6; }
+    }
+    // feeling poorly? herbs look tempting
+    if (lizard.sick > 15) for (const c of candidates) if (c.type === 'mint' && c.verb === 'eat') c.score += 0.6 + lizard.sick / 100;
 
     // survival first: nearly starving or parched, anything that doesn't help with that can wait
     const starving = needs.fullness < 15, parched = needs.hydration < 15;
@@ -677,6 +685,11 @@ class Brain {
     let r = Math.random() * ws.reduce((a, b) => a + b, 0), pick = top[0];
     for (let i = 0; i < top.length; i++) { r -= ws[i]; if (r <= 0) { pick = top[i]; break; } }
 
+    // remember the top few options, for the "Pip's mind" panel
+    const label = c => c.kind === 'idle' ? 'Sit and watch' : c.kind === 'wander' ? (c.search ? 'Search for something' : 'Explore') : c.kind === 'skill' ? `${({ dig: 'Dig', break: 'Pull sticks off', chip: 'Knock stones off', craft: 'Make', plant: 'Plant', tend: 'Water', grab: 'Grab', fill: 'Fill bucket at', stash: 'Store food in', wear: 'Put on', unwear: 'Take off sweater', tinker: 'Tinker with', shelter: 'Shelter in', putdown: 'Put umbrella down', cook: 'Cook at' })[c.verb] || c.verb} ${c.verb === 'craft' && RECIPES[c.recipe] ? RECIPES[c.recipe].label : typeInfo(c.type) && c.type !== 'ground' ? typeInfo(c.type).emoji : ''}` : `${c.verb[0].toUpperCase() + c.verb.slice(1)} ${typeInfo(c.type) && c.type !== 'ground' ? typeInfo(c.type).emoji + ' ' + typeInfo(c.type).name : 'here'}`;
+    const why = c => c.kind !== 'act' ? '' : (['need', 'curious', 'task', 'praise'].map(k => [k, c.parts[k] || 0]).sort((a, b) => b[1] - a[1])[0] || [''])[0];
+    const sum = ws.reduce((a, b) => a + b, 0);
+    this.lastChoices = top.slice(0, 5).map((c, i) => ({ label: label(c), why: why(c), chance: ws[i] / sum, chosen: c === pick }));
     pick.desperateFor = desperateFor;
     pick.reason = this.reasonFor(pick);
     pick.thought = this.thoughtFor(pick, lizard, task, weights);

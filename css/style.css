@@ -217,3 +217,23 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 .books-read ol { margin: 6px 0 2px; padding-left: 20px; }
 .books-read li { margin: 2px 0; }
 #bookTopic { flex: 1 1 160px; min-width: 0; }
+
+.about { display: grid; gap: 6px; font-size: 13px; }
+.about .row2 { display: grid; grid-template-columns: 60px 1fr 74px; gap: 6px; align-items: center; }
+.about .bar > i { background: var(--green); }
+.mind { display: grid; gap: 4px; font-size: 13px; }
+.mind .opt { display: grid; grid-template-columns: 1fr 70px 38px; gap: 6px; align-items: center; }
+.mind .opt.chosen { font-weight: 600; }
+.mind .bar > i { background: var(--accent); }
+.mind .why { color: var(--muted); font-size: 11px; }
+.goals { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 13px; }
+.goals li.done { color: var(--green); }
+.goals li:not(.done) { color: var(--muted); }
+.diary { display: grid; gap: 8px; font-size: 13px; max-height: 280px; overflow: auto; }
+.diary .entry b { display: block; font-size: 12px; color: var(--muted); }
+.weather-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.weather-btns button { font-size: 13px; padding: 4px 9px; }
+body.photo .topbar, body.photo .side, body.photo .thought-card, body.photo .palette-panel, body.photo .stage > .hint { display: none !important; }
+body.photo .layout { grid-template-columns: minmax(0, 1fr); max-width: none; }
+.photo-bar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; gap: 8px; line-height: 1.2; }
+.photo-bar button { background: rgba(255,255,255,.9); color: #222; }

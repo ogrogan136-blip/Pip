@@ -49,6 +49,7 @@ const BOOKS = {
     ['Plants make their own food from sunlight.'],
     ['Flowers make sweet nectar so bees will visit.'],
     ['Some desert seeds can wait years for rain.'],
+    ['Feeling poorly? Mint leaves settle a sick tummy. They grow wild in the grass.', { learn: ['mint', 'eat'] }],
   ] },
   water: { title: 'Water Everywhere', emoji: '💧', pages: [
     ['Every animal needs water to live.', { learn: ['water', 'drink'] }],
@@ -155,7 +156,7 @@ const NEED_BOOKS = { eat: ['seasons', 'garden', 'bugs', 'cooking', 'plants'], dr
 const SPARKS = {
   'cricket:eat': 'bugs', 'mealworm:eat': 'bugs', 'ladybug:eat': 'bugs', 'crab:eat': 'bugs', 'crab:play': 'bugs', 'cricket:play': 'bugs',
   'lettuce:eat': 'garden', 'berry:eat': 'garden', 'plant': 'garden', 'seedling': 'garden', 'flower:eat': 'plants', 'mushroom:eat': 'plants', 'cactus': 'plants',
-  'water': 'water', 'lamp': 'sun', 'rock': 'rocks', 'stone': 'rocks', 'log:rest': 'homes', 'ground:rest': 'homes', 'log': 'building', 'hut': 'homes', 'bed': 'homes', 'cotton': 'homes', 'stick': 'building', 'ball': 'feelings',
+  'water': 'water', 'lamp': 'sun', 'rock': 'rocks', 'stone': 'rocks', 'log:rest': 'homes', 'ground:rest': 'homes', 'log': 'building', 'hut': 'homes', 'bed': 'homes', 'cotton': 'homes', 'mint': 'plants', 'beetle': 'bugs', 'gecko': 'lizards', 'stick': 'building', 'ball': 'feelings',
 };
 
 // Mixed into Brain

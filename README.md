@@ -15,6 +15,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - **Carries water and builds a home.** The water comes from a stone well. To water crops Pip has to learn to make a bucket, fill it at the well and carry it over. A log is a poor bed: Pip can dig a cosy burrow propped up with a log and sticks, and after reading "Cosy Homes" it grows cotton, spins it into wool and makes a comfy bed, the best sleep of all.
 - **Thinks things up itself.** Books are just a guide: with the right materials and a reason (hungry next to lettuce and a cricket, sleeping badly on a log), Pip works out recipes on its own. When bored it tinkers, combining two things to see what happens, and some combinations become brand-new inventions it can make again. It also asks you for ideas or for help when it's stuck.
 - **Lives through the seasons.** Spring, summer, autumn and winter bring sun, rain, thunderstorms, heatwaves and snow. Crops grow in their own seasons, rain waters them, and nothing grows in winter. Pip learns (from a hungry winter, the Seasons book, or you) to build a food store and fill it in autumn, to build a stone stove that's warmer than the lamp, and to wear a woolly sweater in the cold, but not in summer.
+- **Has a life story.** Pip writes a diary entry each day, works towards 15 goals, grows from hatchling to grown-up (and sheds its skin), develops a personality and favourites, can fall ill from staying wet and cold or eating food that's gone off (mint and warm rest help), and gets visits from a food-stealing beetle and a friendly gecko. A panel shows what Pip is weighing up.
 - **Thinks out loud.** The 💭 box and the thoughts log show its reasoning.
 
 ## What you can do
@@ -34,6 +35,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - `js/ai.js`: optional smart thinking through the artifact's Claude capability
 - `js/weather.js`: seasons and weather
 - `js/library.js`: the books, reading level and interests
+- `js/life.js`: diary, goals, personality, growing up, sickness, visitors
 - `js/talk.js`: Pip's questions, understanding replies, custom things
 - `js/game.js`: tasks, training, saving
 - `js/render3d.js`: the 3D terrarium (three.js)

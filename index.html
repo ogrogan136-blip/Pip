@@ -28,6 +28,7 @@
           <button id="zoomIn" title="Zoom in" aria-label="Zoom in">＋</button>
           <button id="zoomOut" title="Zoom out" aria-label="Zoom out">－</button>
           <button id="resetView" title="Reset view">⟲</button>
+          <button id="photo" title="Photo mode" aria-label="Photo mode">📷</button>
         </div>
       </div>
       <p class="hint">Drag the empty floor to turn the view · scroll or ＋/－ to zoom.</p>
@@ -129,6 +130,26 @@
         <ol id="log" class="log"></ol>
       </div>
 
+      <div class="panel" id="aboutPanel">
+        <h2>🦎 About Pip <small id="aboutStage"></small></h2>
+        <div id="about" class="about"></div>
+      </div>
+
+      <div class="panel" id="mindPanel">
+        <h2>🧠 What Pip is weighing up</h2>
+        <div id="mind" class="mind"></div>
+      </div>
+
+      <div class="panel" id="goalsPanel">
+        <h2>🏆 Goals <small id="goalCount"></small></h2>
+        <ul id="goals" class="goals"></ul>
+      </div>
+
+      <div class="panel" id="diaryPanel">
+        <h2>📔 Pip's diary</h2>
+        <div id="diary" class="diary"></div>
+      </div>
+
       <div class="panel" id="booksPanel">
         <h2>📚 Pip's books <small id="readLevel"></small></h2>
         <h3>Interests</h3>
@@ -150,6 +171,14 @@
         <div id="words" class="words"></div>
       </div>
 
+      <div class="panel">
+        <h2>🌦️ Weather &amp; seasons</h2>
+        <div class="weather-btns" id="weatherBtns">
+          <button type="button" data-w="sunny">☀️ Sun</button><button type="button" data-w="rain">🌧️ Rain</button><button type="button" data-w="thunder">⛈️ Storm</button>
+          <button type="button" data-w="snow">🌨️ Snow</button><button type="button" data-w="heatwave">🥵 Heatwave</button><button type="button" id="nextSeason">⏭️ Next season</button>
+        </div>
+      </div>
+
       <div class="panel danger">
         <label class="slider">Curiosity <input type="range" id="curiosity" min="0.2" max="2" step="0.1"></label>
         <div class="buttons">
@@ -168,6 +197,7 @@
   <script src="js/talk.js"></script>
   <script src="js/ai.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/life.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js"></script>
   <script src="js/render3d.js"></script>
   <script src="js/crops.js"></script>

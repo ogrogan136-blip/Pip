@@ -22,6 +22,7 @@ class Lizard {
       Object.assign(this.needs, data.needs || {});
       this.wearing = data.wearing || null;
       this.wet = data.wet || 0;
+      this.age = data.age || 0; this.growth = data.growth; this.shedTimer = data.shedTimer || 0; this.sick = data.sick || 0;
       for (const m of data.memory || []) if (TYPES[m.type]) this.memory.set(m.id, m);
     }
     this.segs = [];
@@ -48,7 +49,7 @@ class Lizard {
   }
 
   toJSON() {
-    return { name: this.name, x: this.x, y: this.y, heading: this.heading, needs: this.needs, wearing: this.wearing || null, wet: Math.round(this.wet), memory: [...this.memory.values()] };
+    return { name: this.name, x: this.x, y: this.y, heading: this.heading, needs: this.needs, wearing: this.wearing || null, wet: Math.round(this.wet), age: this.age || 0, growth: this.growth, shedTimer: this.shedTimer || 0, sick: Math.round(this.sick || 0), memory: [...this.memory.values()] };
   }
 
   think(text, kind = 'thought') {
@@ -64,6 +65,8 @@ class Lizard {
     const warm = clamp(this.needs.warmth / 60, 0, 1);
     let s = 58 * (0.35 + 0.65 * warm);
     if (this.needs.energy < 12) s *= 0.55;
+    s *= 0.8 + 0.25 * (this.growth || 1);
+    if (this.sick > 40) s *= 0.7;
     return s;
   }
 
@@ -403,6 +406,7 @@ class Lizard {
       const held = this.carrying && world.get(this.carrying);
       if (obj && held) {
         (obj.contents || (obj.contents = [])).push(held.type);
+        (obj.addedAt || (obj.addedAt = [])).push(world.time);
         world.remove(held.id); this.carrying = null; this.keepCarry = false;
         text = `Stored a ${TYPES[held.type].emoji} for winter. That's ${obj.contents.length} in my food store! 🏚️`; mood = 'happy';
       } else text = 'Hmm, I dropped it somewhere.';
@@ -567,6 +571,8 @@ class Lizard {
     if (this.wet > 25) { n.fun -= 0.3 * dt * (0.5 + this.wet / 100); n.warmth -= 0.06 * dt * this.wet / 100; }
     if (this.wet > 35 && !this.grumbled && this.state !== 'acting') { this.grumbled = true; this.think(pick(['Ugh, I\'m getting soaked. 😒', 'Rain, rain, go away… I\'m all wet. 😒', 'Blech. Wet scales are the worst. 😒']), 'meh'); this.setMood('meh', 4); }
     if (this.wet < 5) this.grumbled = false;
+    // being poorly: tired, no fun, and a little worse every minute until it gets better
+    if (this.sick > 0) { n.energy -= 0.06 * dt * this.sick / 100; n.fun -= 0.08 * dt * this.sick / 100; n.health -= 0.015 * dt * this.sick / 100; }
     if (n.fullness > 25 && n.hydration > 25 && n.warmth > 30) n.health += 0.25 * dt;
     if (n.fullness <= 1 || n.hydration <= 1) n.health -= 0.6 * dt;
     if (n.warmth > 97) n.health -= 0.3 * dt;
@@ -581,6 +587,7 @@ class Lizard {
   overallMood() {
     if (this.state === 'fainted') return '😵';
     if (this.state === 'acting' && this.plan && this.plan.verb === 'rest') return '😴';
+    if (this.sick > 30) return '🤒';
     if (this.wet > 40) return '😒';
     const m = { hurt: '😣', happy: '😄', curious: '🤔', meh: '😕' }[this.mood];
     if (m) return m;

@@ -403,6 +403,60 @@
   };
   AI.init().then(ok => { if (ok) $('bookAiRow').hidden = false; });
 
+  // ---------- about Pip, mind, goals, diary ----------
+  let lifeSig = null;
+  function renderLife() {
+    const L = game.lizard, b = game.brain, P = b.personality || {};
+    const fav = game.favourites(), em = t => t && typeInfo(t) ? typeInfo(t).emoji + ' ' + typeInfo(t).name : '—';
+    const stage = lifeStage(L.age || 0)[1];
+    $('aboutStage').textContent = `· ${stage}, ${Math.floor(L.age || 0)} days old`;
+    const bar = (label, v, word) => `<div class="row2"><span>${label}</span><div class="bar"><i style="width:${Math.round(v * 100)}%"></i></div><span class="hint" style="margin:0">${word}</span></div>`;
+    const lvl = (v, lo, hi) => v > 0.66 ? hi : v < 0.33 ? lo : 'so-so';
+    const html = [
+      bar('Size', Math.min(1, ((L.growth || 0.72) - 0.6) / 0.6), Math.round((L.growth || 0.72) * 100) + '%'),
+      bar('Brave', P.bravery || 0.5, lvl(P.bravery || 0.5, 'timid', 'brave')),
+      bar('Lazy', P.laziness || 0.4, lvl(P.laziness || 0.4, 'busy bee', 'lazybones')),
+      bar('Curious', P.curiosity || 0.5, lvl(P.curiosity || 0.5, 'cautious', 'nosy')),
+      `<div>❤️ Favourite food: <b>${em(fav.food)}</b> · toy: <b>${em(fav.toy)}</b> · bed: <b>${em(fav.bed)}</b></div>`,
+      `<div>🙅 Can't stand: ${fav.hates.length ? fav.hates.map(t => typeInfo(t) ? typeInfo(t).emoji : '').join(' ') : 'nothing yet'}</div>`,
+      (L.sick || 0) > 10 ? `<div>🤒 Feeling poorly (${Math.round(L.sick)}%). Rest somewhere warm, or mint leaves, help.</div>` : '',
+      (L.shedding || 0) > 0 ? '<div>✨ Shedding its skin</div>' : '',
+    ].join('');
+    if (html !== lifeSig) { lifeSig = html; $('about').innerHTML = html; }
+    const ch = b.lastChoices || [];
+    $('mind').innerHTML = ch.length ? ch.map(c => `<div class="opt ${c.chosen ? 'chosen' : ''}"><span>${c.chosen ? '👉 ' : ''}${escapeHtml(c.label)} <span class="why">${c.why ? '(' + ({ need: 'needs it', curious: 'curious', task: 'your task', praise: 'you liked it' }[c.why]) + ')' : ''}</span></span><div class="bar"><i style="width:${Math.round(c.chance * 100)}%"></i></div><span class="hint" style="margin:0">${Math.round(c.chance * 100)}%</span></div>`).join('') : '<div class="empty">Pip hasn\'t decided anything yet.</div>';
+    const done = GOALS.filter(([id]) => game.goals[id]).length;
+    $('goalCount').textContent = `· ${done} of ${GOALS.length}`;
+    $('goals').innerHTML = GOALS.map(([id, label]) => `<li class="${game.goals[id] ? 'done' : ''}">${game.goals[id] ? '✅' : '⬜'} ${escapeHtml(label)}</li>`).join('');
+    $('diary').innerHTML = game.diary.length ? game.diary.slice(0, 20).map(d => `<div class="entry"><b>Day ${d.day} · ${SEASON_INFO[d.season] ? SEASON_INFO[d.season].icon + ' ' + SEASON_INFO[d.season].label : ''}</b>${escapeHtml(d.text)}</div>`).join('') : '<div class="empty">Pip writes in its diary at the end of each day.</div>';
+  }
+
+  // ---------- weather controls ----------
+  $('weatherBtns').addEventListener('click', e => {
+    const bt = e.target.closest('button'); if (!bt) return;
+    const W = game.world;
+    if (bt.id === 'nextSeason') { W.time = (Math.floor(W.time / W.seasonLength) + 1) * W.seasonLength + 5; W.weatherTimer = 0; game.addLog(`(Skipped ahead to ${SEASON_INFO[W.season].label}.)`, 'task'); return; }
+    W.events.push({ kind: 'weather', weather: bt.dataset.w, from: W.weather });
+    W.weather = bt.dataset.w; W.weatherTimer = 200;
+  });
+
+  // ---------- photo mode ----------
+  let downloads = null;
+  if (window.claude && window.claude.use) window.claude.use('downloads').then(d => { downloads = d; }).catch(() => {});
+  const photoBar = document.createElement('div'); photoBar.className = 'photo-bar'; photoBar.hidden = true;
+  photoBar.innerHTML = '<button type="button" id="snap">📸 Save photo</button><button type="button" id="exitPhoto">✕ Done</button>';
+  document.querySelector('.canvas-wrap').appendChild(photoBar);
+  $('photo').onclick = () => { document.body.classList.add('photo'); photoBar.hidden = false; $('snap').hidden = !downloads; renderer.resize(); };
+  $('exitPhoto').onclick = () => { document.body.classList.remove('photo'); photoBar.hidden = true; renderer.resize(); };
+  $('snap').onclick = async () => {
+    if (!downloads) return;
+    renderer.draw(game, ui, 0); // draw a fresh frame and grab it straight away
+    const url = renderer.canvas.toDataURL('image/png');
+    const bin = atob(url.split(',')[1]), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    try { await downloads.save({ filename: `${game.lizard.name}-day-${Math.floor(game.world.time / game.world.dayLength) + 1}.png`, data: new Blob([bytes], { type: 'image/png' }) }); } catch (err) { /* the viewer said no */ }
+  };
+
   // ---------- settings ----------
   $('autoFeeder').checked = game.world.autoFeeder;
   $('autoFeeder').onchange = e => { game.world.autoFeeder = e.target.checked; };
@@ -470,6 +524,7 @@
       slowTimer = 0;
       renderBrain();
       renderBooks();
+      renderLife();
       renderTask();
       const day = Math.floor(game.world.time / game.world.dayLength) + 1;
       const W = game.world, SI = SEASON_INFO[W.season], WI = WEATHER_INFO[W.weather || 'sunny'];

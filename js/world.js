@@ -187,7 +187,7 @@ class World {
   // Keep the tank from overflowing: clear away the oldest bits of clutter.
   makeRoom(max = 60) {
     // only small loose things get tidied away, never furniture like the water dish or lamp
-    const clutter = ['shell', 'bone', 'stone', 'flower', 'ladybug', 'mushroom', 'crab', 'mealworm', 'cricket', 'berry', 'lettuce', 'stick'];
+    const clutter = ['shed', 'shell', 'bone', 'stone', 'flower', 'ladybug', 'mushroom', 'crab', 'mealworm', 'cricket', 'berry', 'lettuce', 'stick'];
     while (this.objects.length >= max) {
       const old = this.objects.find(o => clutter.includes(o.type)) || this.objects.find(o => TYPES[o.type].custom && TYPES[o.type].byPip && !o.carried);
       if (!old) break;
@@ -273,6 +273,9 @@ class World {
           o.hop = 0.35;
         }
         if (o.hop > 0) { o.hop -= dt; if (o.hop <= 0) { o.vx = 0; o.vy = 0; } }
+      } else if (T.visitor) {
+        visitorStep(this, o, dt, lizard);
+        if (o.type === 'gecko' && Math.random() < dt * 0.3) { const a = rand(0, Math.PI * 2); o.vx = Math.cos(a) * 22; o.vy = Math.sin(a) * 22; }
       } else if (T.crawls) {
         if (Math.random() < dt * 0.3) { const a = rand(0, Math.PI * 2); o.vx = Math.cos(a) * 14; o.vy = Math.sin(a) * 14; }
       } else if (T.rolls) {
@@ -373,12 +376,15 @@ class World {
     const type = obj ? obj.type : 'ground';
     let base = (EFFECTS[type] && EFFECTS[type][verb]) || {};
     // eating at the food store: take the best food out of it
-    let fromStore = null;
+    let fromStore = null, spoiled = false;
     if (type === 'store' && verb === 'eat' && obj && obj.contents && obj.contents.length) {
       const best = obj.contents.slice().sort((a, b) => ((EFFECTS[b] || {}).eat || {}).fullness - ((EFFECTS[a] || {}).eat || {}).fullness)[0];
-      obj.contents.splice(obj.contents.indexOf(best), 1);
+      const i = obj.contents.indexOf(best), at = (obj.addedAt || [])[i];
+      obj.contents.splice(i, 1); if (obj.addedAt) obj.addedAt.splice(i, 1);
       base = (EFFECTS[best] && EFFECTS[best].eat) || {};
       fromStore = best;
+      // food kept for too long goes off
+      if (at !== undefined && this.time - at > this.seasonLength * 2) { lizard.sick = Math.min(100, (lizard.sick || 0) + 45); spoiled = true; }
     }
     const delta = {};
     for (const n of NEEDS) delta[n] = base[n] || 0;
@@ -412,7 +418,9 @@ class World {
       if (verb === 'play' && TYPES[type].hops) { obj.vx = rand(-150, 150); obj.vy = rand(-150, 150); obj.hop = 0.3; }
     }
     delta.seen = seen;
-    if (fromStore) delta.seenText = `I took a ${TYPES[fromStore].emoji} out of my food store.`;
+    if (fromStore) delta.seenText = spoiled ? `Bleurgh, that ${TYPES[fromStore].emoji} from my store had gone off! My tummy feels funny… 🤢` : `I took a ${TYPES[fromStore].emoji} out of my food store.`;
+    if (obj && type === 'beetle' && verb === 'play') { delta.seenText = 'Shoo! Go away! The beetle scurried off. 🪲💨'; this.addFx('sand', obj.x, obj.y); this.remove(obj.id); }
+    if (obj && type === 'mint' && verb === 'eat' && lizard.sick > 0) { lizard.sick = Math.max(0, lizard.sick - 50); delta.seenText = 'Mmm, minty! My tummy feels calmer already. 🌿'; }
     if (CT && CT.says && CT.says[verb]) delta.seenText = String(CT.says[verb]);
     if (CT && CT.custom && delta.seenText) this.addFx('sparkle', lizard.x, lizard.y);
     return delta;

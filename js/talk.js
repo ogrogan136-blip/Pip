@@ -216,6 +216,8 @@ const Talk = {
     this.world.add(type, L.x + Math.cos(a) * 70, L.y + Math.sin(a) * 70);
     L.needs.fun = clamp(L.needs.fun + 4, 0, 100);
     const T = TYPES[type];
+    const fav = this.favourites();
+    if (type === fav.food || type === fav.toy) return `A ${T.emoji} ${T.name}?! That's my FAVOURITE! Thank you thank you thank you! 🤩💚`;
     if (verb && !this.brain.known(type, verb)) { this.believe(type, verb, false); return `Thank you! A ${T.emoji} ${T.name}! Is it to ${VERB_INFO[verb].phrase}? I'll try. 💚`; }
     return `Thank you for the ${T.emoji} ${T.name}! 💚`;
   },
