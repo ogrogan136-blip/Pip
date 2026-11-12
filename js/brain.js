@@ -46,7 +46,7 @@ class Brain {
   }
 
   toJSON() {
-    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, winterHunger: this.winterHunger, winters: this.winters, combos: this.combos, nextTinker: this.nextTinker, customRecipes: this.customRecipes, skills: this.skills, tools: this.tools, spent: this.spent, seeds: this.seeds, farm: this.farm, garden: this.garden, asked: this.asked };
+    return { effects: this.effects, praise: this.praise, words: this.words, seen: this.seen, stats: this.stats, curiosity: this.curiosity, satedUntil: this.satedUntil, reading: this.reading, nextReadAt: this.nextReadAt, extraBooks: this.extraBooks, ideas: this.ideas, winterHunger: this.winterHunger, winters: this.winters, combos: this.combos, nextTinker: this.nextTinker, customRecipes: this.customRecipes, skills: this.skills, tools: this.tools, spent: this.spent, seeds: this.seeds, farm: this.farm, garden: this.garden, asked: this.asked, askedNeed: this.askedNeed };
   }
 
   key(t, v) { return t + ':' + v; }

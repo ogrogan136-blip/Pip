@@ -140,6 +140,7 @@ class World {
       this.nextId = data.nextId || (this.objects.reduce((m, o) => Math.max(m, o.id), 0) + 1);
       this.time = data.time || 60;
       this.autoFeeder = data.autoFeeder !== false;
+      this.weather = data.weather; this.weatherTimer = data.weatherTimer; this.snowCover = data.snowCover || 0;
     } else {
       this.populateDefault();
     }
@@ -160,7 +161,7 @@ class World {
   }
 
   toJSON() {
-    return { objects: this.objects, nextId: this.nextId, time: this.time, autoFeeder: this.autoFeeder };
+    return { objects: this.objects, nextId: this.nextId, time: this.time, autoFeeder: this.autoFeeder, weather: this.weather, weatherTimer: this.weatherTimer, snowCover: this.snowCover };
   }
 
   add(type, x, y) {

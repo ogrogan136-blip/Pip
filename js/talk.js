@@ -121,6 +121,12 @@ const Talk = {
     }
     for (const verb of Object.keys(desp)) {
       const need = verb === 'play' ? 'fun' : Object.keys(INSTINCT).find(n => INSTINCT[n] === verb);
+      // already asked about this recently, or already been told/read what helps and it's here? then don't ask again
+      b.askedNeed = b.askedNeed || {};
+      if (this.world.time - (b.askedNeed[need] || -1e9) < this.world.dayLength * 3) continue;
+      const knowsAnswer = Object.entries(b.effects).some(([k, e]) => k.endsWith(':' + verb) && (e.d[need] || 0) >= 8 && this.world.objects.some(o => k.startsWith(o.type + ':')));
+      if (knowsAnswer) continue;
+      b.askedNeed[need] = this.world.time;
       const gifts = Object.keys(TYPES).filter(t => !TYPES[t].building && truthOf(t, verb)[need] >= 8).slice(0, 4);
       const fixtures = gifts.filter(t => ['water', 'lamp', 'log', 'hut', 'bed', 'grass'].includes(t) && this.world.objects.some(o => o.type === t));
       const opts = gifts.filter(t => !fixtures.includes(t) && !TYPES[t].patch).map(t => ({ label: `Give ${TYPES[t].emoji} ${TYPES[t].name}`, act: 'give', type: t, verb }));

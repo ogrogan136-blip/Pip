@@ -7,8 +7,39 @@
   function loadSave() {
     try { const s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; }
   }
+  // Pip is saved in two places: this browser (instant), and your Claude account (so it's never lost).
+  let cloud = null, cloudBusy = false, lastCloudSave = 0, cloudLoaded = false;
   function save() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(game)); } catch (e) { /* storage unavailable */ }
+    const text = JSON.stringify(game);
+    try { localStorage.setItem(SAVE_KEY, text); } catch (e) { /* storage unavailable */ }
+    saveToCloud(text);
+  }
+  async function saveToCloud(text, force) {
+    if (!cloud || !cloudLoaded || cloudBusy) return;
+    if (!force && Date.now() - lastCloudSave < 60000) return; // at most once a minute
+    cloudBusy = true; lastCloudSave = Date.now();
+    try { await cloud.set({ save: text, savedAt: Date.now() }); } catch (e) { console.warn('Cloud save failed', e); }
+    finally { cloudBusy = false; }
+  }
+  async function connectCloud() {
+    try {
+      if (!window.claude || !window.claude.use) return;
+      const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+      if (!db || !user) return;
+      const id = await user.id();
+      if (!id) return;
+      cloud = db.collection('data/users/' + id).doc('pip');
+      const snap = await cloud.get();
+      const data = snap.exists ? snap.data() : null;
+      if (data && typeof data.save === 'string') {
+        const s = JSON.parse(data.save);
+        const here = (loadSave() || {}).savedAt || 0;
+        // the account copy is newer than what this browser has: use it
+        if ((s.savedAt || 0) > Math.max(here, 0) + 2000) { cloudLoaded = true; restart(s); game.addLog('(Loaded Pip from your Claude account.)', 'task'); return; }
+      }
+      cloudLoaded = true;
+      saveToCloud(JSON.stringify(game), true);
+    } catch (e) { console.warn('Cloud save not available', e); cloudLoaded = true; }
   }
 
   let game;
@@ -449,7 +480,8 @@
     } catch (err) { recover(err); }
   }
   window.addEventListener('beforeunload', save);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { save(); saveToCloud(JSON.stringify(game), true); } });
+  connectCloud();
   renderTask(); renderBrain();
   requestAnimationFrame(frame);
 

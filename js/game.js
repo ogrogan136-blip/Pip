@@ -13,7 +13,7 @@ class Game {
     this.custom.forEach(registerCustomType);
     this.chat = (save && save.chat) || [];
     this.question = (save && save.question) || null;
-    this.nextAsk = 0;
+    this.nextAsk = (save && save.nextAsk) || 0;
     this.daydreams = (save && save.daydreams) || [];
     this.freeImagination = !save || save.freeImagination !== false;
     this.nextDream = 0;
@@ -37,7 +37,7 @@ class Game {
     this.lizard.onTinker = (a, b, x, y) => tinker(this, a, b, x, y);
     // recipes Pip invented by tinkering
     for (const [k, R] of Object.entries(this.brain.customRecipes || {})) if (TYPES[R.makes]) registerCustomRecipe(k, R);
-    this.nextIdeaAsk = 0;
+    this.nextIdeaAsk = (save && save.nextIdeaAsk) || 0;
     // older saves could have had the water dish, lamp or log tidied away by mistake
     if (save && (save.v || 1) < 6) {
       // the little round grass patch became a meadow across the bottom of the tank
@@ -217,7 +217,7 @@ class Game {
 
   // ---- save / load ----
   toJSON() {
-    return { v: 7, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question, daydreams: this.daydreams, freeImagination: this.freeImagination };
+    return { v: 7, savedAt: Date.now(), nextAsk: this.nextAsk, nextIdeaAsk: this.nextIdeaAsk, bookshop: true, world: this.world, brain: this.brain, lizard: this.lizard, task: this.task, taskHistory: this.taskHistory, custom: this.custom, chat: this.chat, question: this.question, daydreams: this.daydreams, freeImagination: this.freeImagination };
   }
 }
 
