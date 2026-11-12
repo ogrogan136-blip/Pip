@@ -152,7 +152,7 @@ const Talk = {
     }
     if (L.needs.warmth < 35 && !W.objects.some(o => o.type === 'stove') && !b.asked?.cold) {
       (b.asked = b.asked || {}).cold = 1;
-      return this.ask({ kind: 'help', text: 'I\'m freezing! The lamp isn\'t enough. How can I stay warm?', options: [{ label: '🔥 Build a stone stove from a rock and sticks', act: 'idea', idea: 'recipe:stove', also: ['craft', 'break'] }, { label: '🧶 Knit a sweater from wool', act: 'idea', idea: 'recipe:sweater', also: ['craft'] }] });
+      return this.ask({ kind: 'help', text: 'I\'m freezing! The lamp isn\'t enough. How can I stay warm?', options: [{ label: '🔥 Knock stones off the rock and build a stove', act: 'idea', idea: 'recipe:stove', also: ['craft', 'break', 'chip'] }, { label: '🧶 Knit a sweater from wool', act: 'idea', idea: 'recipe:sweater', also: ['craft'] }] });
     }
     // 4. wants to make something new: ask its human for ideas
     if (this.world.time > this.nextIdeaAsk && b.hasIdea('craft') && L.needs.fun < 70 && !(L.refill && (L.refill.fullness || L.refill.hydration)) && Math.random() < 0.35) {

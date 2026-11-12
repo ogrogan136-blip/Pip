@@ -229,7 +229,7 @@ class Lizard {
     this.state = 'acting';
     this.speed = 0;
     this.actObj = obj;
-    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4, tinker: 10, stash: 3, wear: 4, unwear: 3, shelter: 25, putdown: 2 }[plan.verb] || 4;
+    this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, chip: 9, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4, tinker: 10, stash: 3, wear: 4, unwear: 3, shelter: 25, putdown: 2 }[plan.verb] || 4;
     if (plan.verb === 'read') this.timer = 20;
     this.longSleep = plan.verb === 'rest' && this.needs.energy < 40;
     if (this.longSleep) this.timer = 26; // a proper sleep
@@ -350,12 +350,19 @@ class Lizard {
         text = s.hits === 1 ? `I dug and dug… and there's a ${T.emoji} down here! There ARE things under the sand! 🤯` : `Found a ${T.emoji} ${T.name} under the sand.`;
         mood = 'happy';
       } else text = pick(['Just sand. Maybe I should try somewhere else.', 'Nothing here. Hmm.', 'I scratched around but found nothing. I\'m not very good at this yet.']);
+    } else if (p.verb === 'chip') {
+      const s = brain.skill('chip');
+      const chance = Math.min(0.95, 0.4 + 0.15 * s.n + (brain.tools.hammer ? 0.25 : 0));
+      s.n++;
+      if (Math.random() >= chance) text = 'Tap, tap… nothing came off. Rocks are tough!';
+      else if (!world.chipOff(obj, brain.tools.hammer)) text = 'This rock has no loose bits left right now.';
+      else { s.hits++; mood = 'happy'; text = s.hits === 1 ? 'CLACK! A flat stone broke off the rock! I can use these! 🤯' : brain.tools.hammer ? 'Bonk, bonk! My hammer knocks off loads of stones. 🔨' : 'Clack. More stones.'; }
     } else if (p.verb === 'break') {
       const s = brain.skill('break');
-      const chance = Math.min(0.9, 0.45 + 0.15 * s.n);
+      const chance = Math.min(0.95, 0.45 + 0.15 * s.n + (brain.tools.hammer ? 0.25 : 0));
       s.n++;
       if (Math.random() >= chance) text = 'I pulled at the bark but nothing came off. I\'ll try a different way next time.';
-      else if (!world.breakOff(obj)) { brain.spent[obj.id] = 1; text = 'There\'s nothing more to pull off this one.'; }
+      else if (!world.breakOff(obj, brain.tools.hammer)) { brain.spent[obj.id] = 1; text = 'There\'s nothing more to pull off this one.'; }
       else { s.hits++; mood = 'happy'; text = s.hits === 1 ? 'CRACK! Bits of the log came off. Sticks! I made sticks! 🤯' : 'Crack. More sticks.'; }
     } else if (p.verb === 'plant') {
       const s = brain.skill('plant');
@@ -470,7 +477,7 @@ class Lizard {
     }
     brain.stats.actions++;
     if (p.verb === 'tinker') brain.spark('building', 0.03);
-    else brain.spark(p.verb === 'dig' ? 'digging' : ['plant', 'tend'].includes(p.verb) || (RECIPES[p.recipe] && RECIPES[p.recipe].farm) ? 'garden' : RECIPES[p.recipe] && RECIPES[p.recipe].food ? 'cooking' : 'building', 0.03);
+    else brain.spark(p.verb === 'chip' ? 'rocks' : p.verb === 'dig' ? 'digging' : ['plant', 'tend'].includes(p.verb) || (RECIPES[p.recipe] && RECIPES[p.recipe].farm) ? 'garden' : RECIPES[p.recipe] && RECIPES[p.recipe].food ? 'cooking' : 'building', 0.03);
     this.think(text, mood === 'happy' ? 'discover' : 'meh');
     this.setMood(mood === 'happy' ? 'happy' : 'meh');
     if (['dig', 'tinker'].includes(p.verb) || (p.verb === 'craft' && brain.skills['recipe:' + p.recipe] && brain.skills['recipe:' + p.recipe].hits === 1)) brain.satisfyCuriosity(world.time);

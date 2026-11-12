@@ -149,6 +149,11 @@ function buildModel(type, o) {
       g.userData.fire = fire;
       break;
     }
+    case 'stone': {
+      let sd2 = 3; const r2 = () => (sd2 = (sd2 * 16807) % 2147483647) / 2147483647;
+      for (let i = 0; i < 2; i++) { const st = add(mesh(jitterGeo(new THREE.DodecahedronGeometry(5 - i * 1.5, 1), 0.9, 5 + i), mat(i ? '#b7afa2' : '#9e978b', { roughness: 0.95, flatShading: true }), i * 4 - 2, 2 + i * 2.2, r2() * 2)); st.scale.y = 0.42; st.rotation.y = i * 1.3; }
+      break;
+    }
     case 'umbrella': {
       add(mesh(cyl(0.9, 0.9, 38, 6), mat('#7a4f25'), 0, 19, 0));
       const leaf = add(mesh(new THREE.SphereGeometry(26, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2.6), mat('#5fae3c', { roughness: 0.5, side: THREE.DoubleSide }), 0, 30, 0));

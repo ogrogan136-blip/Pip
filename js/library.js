@@ -123,7 +123,7 @@ const BOOKS = {
     ['Lettuce likes spring and autumn. Berries and cotton love summer.'],
     ['Nothing grows in winter snow. Save food in autumn to eat in winter!', { ideas: ['stockpile', 'recipe:store'] }],
     ['A food store made of four sticks keeps food safe until you need it.', { ideas: ['recipe:store'] }],
-    ['Lizards get very cold in winter. A stone stove gives much more heat than a lamp.', { ideas: ['recipe:stove'] }],
+    ['Lizards get very cold in winter. A stove made of stones gives much more heat than a lamp.', { ideas: ['recipe:stove', 'chip'] }],
     ['A woolly sweater keeps you warm in the cold.', { ideas: ['recipe:sweater'] }],
     ['But never wear a sweater in summer — you\'ll overheat!', { ideas: ['summerhot'] }],
     ['Thunderstorms are loud but they can\'t hurt you indoors.'],
@@ -136,6 +136,9 @@ const BOOKS = {
     ['Sand is just very, very tiny rocks.'],
     ['Some rocks are older than the dinosaurs.'],
     ['Rocks are hard and lumpy. You can nap on one, but it\'s not comfy!', { learn: ['rock', 'rest'] }],
+    ['Tap the edge of a big rock just right and flat stones break off. Handy for building!', { ideas: ['chip'] }],
+    ['Tie a stone to a stick and you have a hammer. It hits much harder than claws!', { ideas: ['recipe:hammer'] }],
+    ['Stones soak up heat. Pile them up around a fire and they keep you warm for ages.', { ideas: ['recipe:stove'] }],
   ] },
 };
 
@@ -149,7 +152,7 @@ const NEED_BOOKS = { eat: ['seasons', 'garden', 'bugs', 'cooking', 'plants'], dr
 const SPARKS = {
   'cricket:eat': 'bugs', 'mealworm:eat': 'bugs', 'ladybug:eat': 'bugs', 'crab:eat': 'bugs', 'crab:play': 'bugs', 'cricket:play': 'bugs',
   'lettuce:eat': 'garden', 'berry:eat': 'garden', 'plant': 'garden', 'seedling': 'garden', 'flower:eat': 'plants', 'mushroom:eat': 'plants', 'cactus': 'plants',
-  'water': 'water', 'lamp': 'sun', 'rock': 'rocks', 'log:rest': 'homes', 'ground:rest': 'homes', 'log': 'building', 'hut': 'homes', 'bed': 'homes', 'cotton': 'homes', 'stick': 'building', 'ball': 'feelings',
+  'water': 'water', 'lamp': 'sun', 'rock': 'rocks', 'stone': 'rocks', 'log:rest': 'homes', 'ground:rest': 'homes', 'log': 'building', 'hut': 'homes', 'bed': 'homes', 'cotton': 'homes', 'stick': 'building', 'ball': 'feelings',
 };
 
 // Mixed into Brain

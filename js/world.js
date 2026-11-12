@@ -62,6 +62,7 @@ const TYPES = {
   bucket:   { emoji: '🪣', name: 'bucket', size: 12, hidden: true },
   store:    { emoji: '🏚️', name: 'food store', size: 26, building: true, hidden: true, words: ['store', 'shed', 'pantry', 'storage'] },
   stove:    { emoji: '🔥', name: 'stone stove', size: 22, heat: 210, heatPower: 80, hidden: true, words: ['stove', 'fire', 'heater'] },
+  stone:    { emoji: '🥌', name: 'stone', size: 9, hidden: true, words: ['stone', 'pebble'] },
   umbrella: { emoji: '☂️', name: 'leaf umbrella', size: 14, hidden: true, words: ['umbrella', 'leaf'] },
   sweater:  { emoji: '🧥', name: 'woolly sweater', size: 12, hidden: true, words: ['sweater', 'jumper', 'clothes', 'coat'] },
   hut:      { emoji: '🪨', name: 'cosy burrow', size: 40, building: true, hidden: true, words: ['burrow', 'den', 'cave', 'hole', 'home', 'house', 'cabin', 'hut'] },
@@ -97,6 +98,7 @@ const EFFECTS = {
   stove:    { bask: { warmth: 30 }, rest: { energy: 8, warmth: 12 } },
   sweater:  { play: { fun: 4 } },
   umbrella: { play: { fun: 4 } },
+  stone:    { play: { fun: 5 }, eat: { health: -4 }, bask: { warmth: 4 } },
   hut:      { rest: { energy: 48, warmth: 6, fun: 3 }, play: { fun: 4 } },
   bed:      { rest: { energy: 75, fun: 8 }, play: { fun: 5 } },
   cotton:   { play: { fun: 6 }, eat: { fun: -3 } },
@@ -184,7 +186,7 @@ class World {
   // Keep the tank from overflowing: clear away the oldest bits of clutter.
   makeRoom(max = 60) {
     // only small loose things get tidied away, never furniture like the water dish or lamp
-    const clutter = ['shell', 'bone', 'flower', 'ladybug', 'mushroom', 'crab', 'mealworm', 'cricket', 'berry', 'lettuce', 'stick'];
+    const clutter = ['shell', 'bone', 'stone', 'flower', 'ladybug', 'mushroom', 'crab', 'mealworm', 'cricket', 'berry', 'lettuce', 'stick'];
     while (this.objects.length >= max) {
       const old = this.objects.find(o => clutter.includes(o.type)) || this.objects.find(o => TYPES[o.type].custom && TYPES[o.type].byPip && !o.carried);
       if (!old) break;
@@ -287,6 +289,7 @@ class World {
         this.feederTimer = 0;
         // logs slowly get new loose bark, and a fallen log turns up now and then if there are none
         for (const lg of this.objects) if (lg.type === 'log' && lg.breaks > 0 && this.time - (lg.lastBreak || 0) > 600) { lg.breaks--; lg.lastBreak = this.time; }
+        for (const rk of this.objects) if (rk.type === 'rock' && rk.chips > 0 && this.time - (rk.lastChip || 0) > 900) { rk.chips--; rk.lastChip = this.time; }
         if (!this.objects.some(o => o.type === 'log') && Math.random() < 0.25) this.add('log', rand(620, 900), rand(80, 200));
         // the keeper always makes sure there's a water dish
         if (!this.objects.some(o => o.type === 'water')) this.add('water', 780, 480);
@@ -307,7 +310,7 @@ class World {
   dig(x, y, luck) {
     this.addFx('sand', x, y);
     const r = Math.random();
-    const table = luck ? [['mealworm', 0.3], ['crab', 0.55], ['shell', 0.72], ['bone', 0.85], ['berry', 1]] : [['mealworm', 0.4], ['crab', 0.58], ['shell', 0.76], ['bone', 0.9], ['berry', 1]];
+    const table = luck ? [['mealworm', 0.28], ['crab', 0.5], ['shell', 0.64], ['stone', 0.78], ['bone', 0.88], ['berry', 1]] : [['mealworm', 0.36], ['crab', 0.52], ['shell', 0.66], ['stone', 0.8], ['bone', 0.9], ['berry', 1]];
     let type = table.find(([, p]) => r <= p)[0];
     // things Pip imagined might be buried
     const extras = Object.keys(TYPES).filter(k => TYPES[k].buried);
@@ -316,13 +319,24 @@ class World {
     return type;
   }
   // Pulling a log apart gives sticks, until there's nothing loose left.
-  breakOff(obj) {
+  // Knocking flat stones off a rock (rocks slowly weather, so a few more come loose over time)
+  chipOff(obj, hammer) {
+    obj.lastChip = this.time;
+    if ((obj.chips || 0) >= 4) return 0;
+    obj.chips = (obj.chips || 0) + 1;
+    this.addFx('chips', obj.x, obj.y);
+    const n = hammer ? 3 : 2;
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2; this.add('stone', obj.x + Math.cos(a) * 40, obj.y + Math.sin(a) * 40); }
+    return n;
+  }
+  breakOff(obj, hammer) {
     obj.lastBreak = this.time;
     if ((obj.breaks || 0) >= 3) return 0;
     obj.breaks = (obj.breaks || 0) + 1;
     this.addFx('chips', obj.x, obj.y);
-    for (let i = 0; i < 2; i++) { const a = Math.random() * Math.PI * 2; this.add('stick', obj.x + Math.cos(a) * 45, obj.y + Math.sin(a) * 45); }
-    return 2;
+    const n = hammer ? 3 : 2;
+    for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2; this.add('stick', obj.x + Math.cos(a) * 45, obj.y + Math.sin(a) * 45); }
+    return n;
   }
   hasMaterials(recipe) {
     return Object.entries(RECIPES[recipe].needs).every(([t, n]) => this.objects.filter(o => o.type === t).length >= n);
@@ -405,7 +419,8 @@ class World {
 const RECIPES = {
   umbrella: { needs: { stick: 1, lettuce: 1 }, makes: 'umbrella', label: 'a leaf umbrella' },
   store:   { needs: { stick: 4 }, makes: 'store', label: 'a food store' },
-  stove:   { needs: { rock: 1, stick: 2 }, makes: 'stove', label: 'a stone stove' },
+  stove:   { needs: { stone: 3, stick: 2 }, makes: 'stove', label: 'a stone stove' },
+  hammer:  { needs: { stone: 1, stick: 1 }, makes: null, tool: 'hammer', label: 'a stone hammer' },
   sweater: { needs: { wool: 1 }, makes: 'sweater', label: 'a woolly sweater' },
   bucket: { needs: { stick: 2 }, makes: 'bucket', label: 'a bucket' },
   hut:    { needs: { log: 1, stick: 3 }, makes: 'hut', label: 'a cosy burrow' },
