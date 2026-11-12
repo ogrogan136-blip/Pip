@@ -1,0 +1,68 @@
+'use strict';
+/*
+ * shapes.js — proper 3D shapes for invented things, picked from their name.
+ * Anything without a matching shape becomes a little standing figure of its emoji.
+ */
+
+function emojiStandee(emoji, size) {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  x.font = '104px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+  x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(emoji, 64, 70);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
+  const s = size * 2.8; sp.scale.set(s, s, 1); sp.position.y = s * 0.45;
+  return sp;
+}
+
+// name keyword → builder(g, add, r, color)
+const SHAPES = [
+  [/egg/, (add, r, c) => { const e = add(mesh(sphere(r * 0.8, 20), mat(c === '#a07ad8' ? '#f3ead8' : c, { roughness: 0.4 }), 0, r * 1.05, 0)); e.scale.set(1, 1.32, 1); }],
+  [/sock/, (add, r, c) => { add(mesh(cyl(r * 0.45, r * 0.45, r * 1.6, 14), mat(c), 0, r * 1.1, 0)); const f = add(mesh(new THREE.CapsuleGeometry(r * 0.45, r * 0.9, 6, 12), mat(c), r * 0.55, r * 0.45, 0)); f.rotation.z = Math.PI / 2; for (let i = 0; i < 3; i++) add(mesh(new THREE.TorusGeometry(r * 0.46, r * 0.07, 6, 18), mat('#ffffff'), 0, r * (1.3 + i * 0.25), 0)).rotation.x = Math.PI / 2; }],
+  [/moon/, (add, r, c) => { const m = add(mesh(new THREE.TorusGeometry(r * 0.7, r * 0.32, 12, 24, Math.PI * 1.15), mat('#f2e3a1', { emissive: '#7a6a20', emissiveIntensity: 0.3 }), 0, r * 1.1, 0)); m.rotation.z = -0.4; }],
+  [/toaster/, (add, r) => { add(mesh(new THREE.BoxGeometry(r * 1.8, r * 1.3, r * 1.1), mat('#c9ccd1', { metalness: 0.7, roughness: 0.25 }), 0, r * 0.65, 0)); for (const z of [-0.25, 0.25]) add(mesh(new THREE.BoxGeometry(r * 1.3, 0.6, r * 0.18), mat('#222'), 0, r * 1.31, r * z)); add(mesh(new THREE.BoxGeometry(r * 0.15, r * 0.3, r * 0.25), mat('#333'), r * 0.95, r * 0.8, 0)); for (const z of [-0.25, 0.25]) add(mesh(new THREE.BoxGeometry(r * 1.0, r * 0.35, r * 0.12), mat('#d9a35a'), 0, r * 1.45, r * z)); }],
+  [/jelly|jello|pudding/, (add, r, c) => { add(mesh(cyl(r * 0.6, r * 0.85, r * 1.1, 16), new THREE.MeshStandardMaterial({ color: c, transparent: true, opacity: 0.75, roughness: 0.1 }), 0, r * 0.55, 0)); add(mesh(sphere(r * 0.18, 8), mat('#d32f2f'), 0, r * 1.2, 0)); }],
+  [/cloud/, (add, r) => { for (const [x, y, s] of [[0, 1.2, 0.7], [-0.6, 1, 0.55], [0.6, 1, 0.55], [0.3, 1.45, 0.5], [-0.3, 1.4, 0.45]]) add(mesh(sphere(r * s, 14), mat('#fbfbff', { roughness: 0.9 }), x * r, y * r, 0)); }],
+  [/teapot|kettle/, (add, r, c) => { const b = add(mesh(sphere(r * 0.75, 18), mat(c, { roughness: 0.3 }), 0, r * 0.75, 0)); b.scale.y = 0.85; const sp = add(mesh(cyl(r * 0.1, r * 0.2, r * 0.9, 8), mat(c), r * 0.85, r * 0.95, 0)); sp.rotation.z = -0.9; add(mesh(new THREE.TorusGeometry(r * 0.35, r * 0.08, 8, 16), mat(c), -r * 0.8, r * 0.85, 0)); add(mesh(sphere(r * 0.15, 8), mat(c), 0, r * 1.45, 0)); }],
+  [/donut|doughnut|bagel/, (add, r, c) => { const d = add(mesh(new THREE.TorusGeometry(r * 0.6, r * 0.3, 14, 24), mat('#d39a5a'), 0, r * 0.32, 0)); d.rotation.x = Math.PI / 2; const ic = add(mesh(new THREE.TorusGeometry(r * 0.6, r * 0.27, 10, 24), mat(c === '#a07ad8' ? '#f48fb1' : c), 0, r * 0.45, 0)); ic.rotation.x = Math.PI / 2; ic.scale.z = 0.5; for (let i = 0; i < 10; i++) { const a = i * 0.63; add(mesh(new THREE.BoxGeometry(r * 0.15, r * 0.05, r * 0.05), mat(['#fff176', '#4fc3f7', '#ffffff'][i % 3]), Math.cos(a) * r * 0.6, r * 0.62, Math.sin(a) * r * 0.6)).rotation.y = i; } }],
+  [/bell/, (add, r, c) => { add(mesh(new THREE.CylinderGeometry(r * 0.3, r * 0.8, r * 1.2, 18, 1, true), mat('#e0b23a', { metalness: 0.7, roughness: 0.3, side: THREE.DoubleSide }), 0, r * 0.9, 0)); add(mesh(sphere(r * 0.3, 12), mat('#e0b23a', { metalness: 0.7 }), 0, r * 1.5, 0)); add(mesh(sphere(r * 0.15, 8), mat('#8a6a1a'), 0, r * 0.35, 0)); }],
+  [/crystal|gem|diamond|jewel/, (add, r, c) => { const g2 = add(mesh(new THREE.OctahedronGeometry(r * 0.75, 0), new THREE.MeshStandardMaterial({ color: c, transparent: true, opacity: 0.8, roughness: 0.05, metalness: 0.2, flatShading: true }), 0, r * 1.2, 0)); g2.scale.y = 1.6; }],
+  [/pickle|cucumber/, (add, r) => { const p = add(mesh(jitterGeo(new THREE.CapsuleGeometry(r * 0.38, r * 1.3, 6, 12), r * 0.06, 4), mat('#6b8e23', { roughness: 0.6 }), 0, r * 0.4, 0)); p.rotation.z = Math.PI / 2; }],
+  [/skull/, (add, r) => { const s = add(mesh(sphere(r * 0.7, 18), mat('#efe9dc', { roughness: 0.7 }), 0, r * 0.95, 0)); s.scale.z = 0.9; add(mesh(new THREE.BoxGeometry(r * 0.8, r * 0.4, r * 0.7), mat('#efe9dc'), r * 0.1, r * 0.35, 0)); for (const z of [-0.25, 0.25]) add(mesh(sphere(r * 0.18, 10), mat('#222'), r * 0.58, r * 1.0, r * z)); add(mesh(sphere(r * 0.08, 6), mat('#222'), r * 0.68, r * 0.72, 0)); }],
+  [/ghost|spook|spirit/, (add, r) => { const gm = new THREE.MeshStandardMaterial({ color: '#f6f8ff', transparent: true, opacity: 0.8, roughness: 0.6 }); add(mesh(new THREE.CapsuleGeometry(r * 0.55, r * 0.9, 8, 16), gm, 0, r * 1.2, 0)); for (let i = 0; i < 5; i++) add(mesh(sphere(r * 0.2, 8), gm, Math.cos(i * 1.256) * r * 0.45, r * 0.45, Math.sin(i * 1.256) * r * 0.45)); for (const z of [-0.18, 0.18]) add(mesh(sphere(r * 0.1, 8), mat('#222'), r * 0.5, r * 1.5, r * z)); }],
+  [/worm|snake|noodle/, (add, r, c) => { for (let i = 0; i < 9; i++) add(mesh(sphere(r * 0.28 * (i === 0 ? 1.15 : 1 - i * 0.04), 10), mat(i % 2 ? c : lerpColor(c, '#000000', 0.15), { roughness: 0.5 }), (i - 4) * r * 0.36, r * 0.3, Math.sin(i * 0.9) * r * 0.3)); add(mesh(sphere(r * 0.06, 6), mat('#111'), -1.6 * r, r * 0.42, r * 0.12)); }],
+  [/trumpet|horn|tuba/, (add, r) => { const brass = mat('#e0b23a', { metalness: 0.75, roughness: 0.25 }); const t = add(mesh(cyl(r * 0.12, r * 0.12, r * 1.6, 10), brass, 0, r * 0.5, 0)); t.rotation.z = Math.PI / 2; const b = add(mesh(new THREE.CylinderGeometry(r * 0.1, r * 0.55, r * 0.6, 18, 1, true), new THREE.MeshStandardMaterial({ color: '#e0b23a', metalness: 0.75, roughness: 0.25, side: THREE.DoubleSide }), r * 1.0, r * 0.5, 0)); b.rotation.z = -Math.PI / 2; for (let i = 0; i < 3; i++) add(mesh(cyl(r * 0.06, r * 0.06, r * 0.35, 6), brass, -r * 0.2 + i * r * 0.2, r * 0.75, 0)); }],
+  [/cheese/, (add, r) => { const w = add(mesh(new THREE.CylinderGeometry(r, r, r * 0.8, 3, 1, false, 0, Math.PI / 2.5), mat('#f6c945', { roughness: 0.6 }), 0, r * 0.4, 0)); for (let i = 0; i < 4; i++) add(mesh(sphere(r * 0.12, 8), mat('#d9a62b'), r * (0.2 + i * 0.12), r * (0.3 + (i % 2) * 0.3), r * 0.42)); }],
+  [/potion|bottle|flask|elixir/, (add, r, c) => { add(mesh(sphere(r * 0.6, 16), new THREE.MeshStandardMaterial({ color: '#e8f6ff', transparent: true, opacity: 0.35, roughness: 0.05 }), 0, r * 0.65, 0)); add(mesh(sphere(r * 0.5, 14), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.4, transparent: true, opacity: 0.85 }), 0, r * 0.58, 0)); add(mesh(cyl(r * 0.18, r * 0.2, r * 0.5, 10), new THREE.MeshStandardMaterial({ color: '#e8f6ff', transparent: true, opacity: 0.4 }), 0, r * 1.3, 0)); add(mesh(cyl(r * 0.2, r * 0.17, r * 0.22, 10), mat('#a0703a'), 0, r * 1.62, 0)); }],
+  [/star/, (add, r, c) => { const sh = new THREE.Shape(); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 + Math.PI / 2, rr = i % 2 ? r * 0.42 : r; i ? sh.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : sh.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); } const s = add(mesh(new THREE.ExtrudeGeometry(sh, { depth: r * 0.35, bevelEnabled: true, bevelSize: r * 0.06, bevelThickness: r * 0.06, bevelSegments: 2 }), mat('#ffd23f', { emissive: '#7a6000', emissiveIntensity: 0.3 }), 0, r * 1.1, 0)); s.rotation.y = 0.3; }],
+  [/meatball|meat/, (add, r) => { add(mesh(jitterGeo(sphere(r * 0.65, 12), r * 0.1, 7), mat('#7a3f1c', { roughness: 0.8, flatShading: true }), 0, r * 0.6, 0)); }],
+  [/tooth|teeth/, (add, r) => { const w = mat('#f7f3ea', { roughness: 0.35 }); const cr = add(mesh(sphere(r * 0.55, 14), w, 0, r * 1.05, 0)); cr.scale.set(1, 0.75, 0.9); for (const x of [-0.25, 0.25]) { const rt = add(mesh(new THREE.ConeGeometry(r * 0.22, r * 0.8, 10), w, x * r, r * 0.45, 0)); rt.rotation.z = Math.PI + x; } }],
+  [/pillow|cushion|mattress/, (add, r, c) => { const p = add(mesh(sphere(r, 16), mat(c, { roughness: 1 }), 0, r * 0.35, 0)); p.scale.set(1.2, 0.35, 0.85); }],
+  [/blanket|quilt|rug|mat\b/, (add, r, c) => { const b = add(mesh(new THREE.BoxGeometry(r * 2.4, r * 0.12, r * 1.8), mat(c, { roughness: 1 }), 0, r * 0.08, 0)); for (let i = 0; i < 4; i++) add(mesh(new THREE.BoxGeometry(r * 2.4, r * 0.13, r * 0.12), mat('#ffffff'), 0, r * 0.09, -r * 0.6 + i * r * 0.4)); }],
+  [/cake/, (add, r, c) => { add(mesh(cyl(r * 0.8, r * 0.8, r * 0.5, 20), mat('#f3d8b0'), 0, r * 0.25, 0)); add(mesh(cyl(r * 0.82, r * 0.82, r * 0.12, 20), mat(c === '#a07ad8' ? '#f48fb1' : c), 0, r * 0.55, 0)); add(mesh(cyl(r * 0.55, r * 0.55, r * 0.4, 20), mat('#f3d8b0'), 0, r * 0.8, 0)); add(mesh(sphere(r * 0.13, 10), mat('#d32f2f'), 0, r * 1.08, 0)); }],
+  [/pie|tart/, (add, r) => { add(mesh(cyl(r * 0.85, r * 0.7, r * 0.35, 20), mat('#d39a5a'), 0, r * 0.18, 0)); add(mesh(new THREE.TorusGeometry(r * 0.78, r * 0.1, 8, 24), mat('#c47f3a'), 0, r * 0.36, 0)).rotation.x = Math.PI / 2; for (let i = 0; i < 4; i++) add(mesh(new THREE.BoxGeometry(r * 1.4, r * 0.05, r * 0.1), mat('#c47f3a'), 0, r * 0.37, -r * 0.45 + i * r * 0.3)); }],
+  [/bun|bread|roll|muffin/, (add, r) => { const b = add(mesh(sphere(r * 0.7, 16), mat('#d39a5a', { roughness: 0.7 }), 0, r * 0.4, 0)); b.scale.y = 0.65; for (let i = 0; i < 6; i++) add(mesh(sphere(r * 0.05, 4), mat('#fff8e1'), Math.cos(i) * r * 0.3, r * 0.82, Math.sin(i) * r * 0.3)); }],
+  [/dumpling|gyoza|bao/, (add, r) => { const d = add(mesh(sphere(r * 0.6, 16, 10), mat('#f5ead3', { roughness: 0.6 }), 0, r * 0.4, 0)); d.scale.set(1, 0.75, 1); for (let i = 0; i < 6; i++) add(mesh(new THREE.ConeGeometry(r * 0.1, r * 0.3, 5), mat('#f5ead3'), Math.cos(i) * r * 0.1, r * 0.85, Math.sin(i) * r * 0.1)).rotation.z = Math.cos(i) * 0.5; }],
+  [/sandwich|burger|toastie/, (add, r) => { add(mesh(new THREE.BoxGeometry(r * 1.4, r * 0.25, r * 1.4), mat('#e8c27a'), 0, r * 0.13, 0)); add(mesh(new THREE.BoxGeometry(r * 1.5, r * 0.12, r * 1.5), mat('#7fbf45'), 0, r * 0.3, 0)); add(mesh(new THREE.BoxGeometry(r * 1.35, r * 0.15, r * 1.35), mat('#d9534f'), 0, r * 0.42, 0)); add(mesh(new THREE.BoxGeometry(r * 1.4, r * 0.25, r * 1.4), mat('#e8c27a'), 0, r * 0.62, 0)); }],
+  [/balloon/, (add, r, c) => { const b = add(mesh(sphere(r * 0.6, 16), mat(c, { roughness: 0.25 }), 0, r * 2.2, 0)); b.scale.y = 1.2; add(mesh(cyl(r * 0.02, r * 0.02, r * 1.6, 4), mat('#ffffff'), 0, r * 0.9, 0)); }],
+  [/kite/, (add, r, c) => { const sh = new THREE.Shape(); sh.moveTo(0, r); sh.lineTo(r * 0.6, 0); sh.lineTo(0, -r * 1.3); sh.lineTo(-r * 0.6, 0); sh.lineTo(0, r); const k = add(mesh(new THREE.ShapeGeometry(sh), mat(c, { side: THREE.DoubleSide }), 0, r * 2.4, 0)); k.rotation.x = -0.4; for (let i = 0; i < 4; i++) add(mesh(sphere(r * 0.08, 6), mat(['#ffd23f', '#f44336'][i % 2]), 0, r * (1.0 - i * 0.25), r * 0.35 * i)); }],
+  [/puzzle|jigsaw/, (add, r, c) => { add(mesh(new THREE.BoxGeometry(r * 1.2, r * 0.25, r * 1.2), mat(c), 0, r * 0.13, 0)); add(mesh(cyl(r * 0.22, r * 0.22, r * 0.25, 12), mat(c), r * 0.7, r * 0.13, 0)); add(mesh(cyl(r * 0.22, r * 0.22, r * 0.25, 12), mat(c), 0, r * 0.13, r * 0.7)); }],
+  [/spinner|top\b|yo-?yo|whirl/, (add, r, c) => { add(mesh(new THREE.ConeGeometry(r * 0.7, r * 0.8, 20), mat(c), 0, r * 0.4, 0)).rotation.x = Math.PI; add(mesh(cyl(r * 0.75, r * 0.75, r * 0.15, 20), mat('#ffffff'), 0, r * 0.82, 0)); add(mesh(cyl(r * 0.08, r * 0.08, r * 0.5, 8), mat('#5a3d22'), 0, r * 1.1, 0)); }],
+  [/brush|broom|mop|duster/, (add, r) => { const h = add(mesh(cyl(r * 0.07, r * 0.07, r * 2.4, 8), mat('#8a5a2b'), 0, r * 0.3, 0)); h.rotation.z = Math.PI / 2.3; const br = add(mesh(new THREE.ConeGeometry(r * 0.5, r * 0.8, 14), mat('#d9b56a', { roughness: 1 }), r * 1.15, r * 0.35, 0)); br.rotation.z = Math.PI / 2 + 0.3; }],
+  [/hat|cap|crown/, (add, r, c) => { add(mesh(cyl(r * 0.5, r * 0.55, r * 0.9, 18), mat(c), 0, r * 0.6, 0)); add(mesh(cyl(r * 0.95, r * 0.95, r * 0.08, 24), mat(c), 0, r * 0.15, 0)); add(mesh(cyl(r * 0.56, r * 0.56, r * 0.15, 18), mat('#222'), 0, r * 0.3, 0)); }],
+  [/mug|cup|teacup/, (add, r, c) => { add(mesh(cyl(r * 0.5, r * 0.42, r * 1, 16), mat(c, { roughness: 0.35 }), 0, r * 0.5, 0)); add(mesh(new THREE.TorusGeometry(r * 0.28, r * 0.07, 8, 14), mat(c), r * 0.55, r * 0.55, 0)); add(mesh(cyl(r * 0.45, r * 0.45, r * 0.05, 16), mat('#6b3e1f'), 0, r * 0.95, 0)); }],
+  [/book|diary|journal/, (add, r, c) => { add(mesh(new THREE.BoxGeometry(r * 1.4, r * 0.35, r * 1.0), mat(c), 0, r * 0.18, 0)); add(mesh(new THREE.BoxGeometry(r * 1.3, r * 0.28, r * 0.95), mat('#fffbea'), r * 0.04, r * 0.18, 0)); }],
+  [/ball\b|orb|marble|bubble/, (add, r, c) => { add(mesh(sphere(r * 0.7, 18), mat(c, { roughness: 0.3 }), 0, r * 0.7, 0)); }],
+];
+
+// Build a model for an invented kind of thing. Returns true if a real shape was used.
+function buildInventionModel(g, T) {
+  const r = T.size, c = T.color || '#a07ad8', add = o => (g.add(o), o);
+  const name = String(T.name || '').toLowerCase();
+  for (const [re, build] of SHAPES) if (re.test(name)) { build(add, r, c); return true; }
+  // no matching shape: a little standing figure of its emoji (always looks like what it is)
+  g.add(emojiStandee(T.emoji || '❔', r));
+  const sh = mesh(new THREE.CircleGeometry(r * 0.7, 16), new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.18, depthWrite: false }), 0, 0.6, 0);
+  sh.rotation.x = -Math.PI / 2; sh.castShadow = false; g.add(sh);
+  g.userData.standee = true;
+  return false;
+}

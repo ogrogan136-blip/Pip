@@ -40,6 +40,7 @@ Open `index.html` in a browser — no install or build needed. Pip's memories ar
 - `js/game.js`: tasks, training, saving
 - `js/render3d.js`: the 3D terrarium (three.js)
 - `js/crops.js`: crop models that grow in stages
+- `js/shapes.js`: 3D shapes for invented things, chosen by name
 - `js/ui.js`: the page and controls
 
 Headless learning test: `node tests/sim.js`

@@ -498,15 +498,7 @@ function buildModel(type, o) {
     }
   }
   const CT = TYPES[type];
-  if (CT && CT.custom) {
-    const r = CT.size, m = mat(CT.color, { roughness: 0.5 });
-    if (CT.shape === 'box') add(mesh(new THREE.BoxGeometry(r * 1.6, r * 1.6, r * 1.6), m, 0, r * 0.8, 0));
-    else if (CT.shape === 'cone') add(mesh(new THREE.ConeGeometry(r, r * 2.2, 18), m, 0, r * 1.1, 0));
-    else if (CT.shape === 'cylinder') add(mesh(cyl(r, r, r * 1.4, 20), m, 0, r * 0.7, 0));
-    else if (CT.shape === 'blob') { const b = add(mesh(jitterGeo(new THREE.DodecahedronGeometry(r, 1), r * 0.3, 5), mat(CT.color, { roughness: 0.6, flatShading: true }), 0, r * 0.7, 0)); b.scale.y = 0.8; }
-    else if (CT.shape === 'star') { for (let i = 0; i < 3; i++) { const c = add(mesh(new THREE.OctahedronGeometry(r, 0), m, 0, r, 0)); c.rotation.set(i * 1.05, i * 0.7, 0); c.scale.set(1, 0.45, 0.45); } }
-    else add(mesh(sphere(r, 20), m, 0, r, 0));
-  }
+  if (CT && CT.custom) buildInventionModel(g, CT);
   g.traverse(o => { if (o.isMesh) o.userData.type = type; });
   return g;
 }
@@ -765,7 +757,7 @@ class Renderer3D {
         m.userData.grow = 1;
       } else if (m.userData.wasCarried) { m.scale.setScalar(1); m.rotation.z = 0; }
       m.userData.wasCarried = !!o.carried;
-      if ((T.custom || m.userData.labelEmoji) && !m.userData.label) {
+      if ((T.custom || m.userData.labelEmoji) && !m.userData.label && !m.userData.standee) {
         // a floating icon, so you can tell what an invented thing is
         const c = document.createElement('canvas'); c.width = c.height = 64;
         const x = c.getContext('2d'); x.font = '48px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
