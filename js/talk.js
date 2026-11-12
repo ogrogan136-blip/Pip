@@ -75,6 +75,46 @@ const ASK_FOR = {
   energy: ['I\'m so tired. Is there a good place to sleep?', 'rest'],
   fun: ['I\'m bored. Could I have something to play with?', 'play'],
 };
+// Special uses that aren't just eat / drink / bask / rest / play
+const SPECIAL_USES = {
+  log: { label: '🪵 Pull sticks off it', idea: 'break', also: ['craft'] },
+  rock: { label: '🪨 Knock stones off it', idea: 'chip', also: ['craft'] },
+  bucket: { label: '🪣 Carry water to your plants in it', idea: 'carry', also: ['tend'] },
+  umbrella: { label: '☂️ Hold it over your head in the rain', idea: 'recipe:umbrella', also: ['shelter'] },
+  sweater: { label: '🧥 Wear it when you\'re cold', idea: 'recipe:sweater' },
+  store: { label: '🏚️ Keep food in it for winter', idea: 'stockpile' },
+  stove: { label: '🔥 Warm up and cook food on it', idea: 'cook' },
+  grass: { label: '🌱 Plant seeds in it', idea: 'grass', also: ['plant'] },
+  bookstore: { label: '📚 Read the books to learn things', act: 'read' },
+  hut: { label: '🏠 Hide inside when it rains', idea: 'shelter' },
+  mint: { label: '🌿 Eat it when you feel poorly', verb: 'eat' },
+  water: { label: '🌱 Fill a bucket here to water plants', idea: 'carry', also: ['tend'] },
+  beetle: { label: '😠 Shoo it away, it steals food!', verb: 'play' },
+};
+const VERB_ANSWERS = { eat: '😋 It\'s food', drink: '👅 You can drink from it', bask: '☀️ Warm up by it', rest: '💤 Sleep on it', play: '🤸 It\'s fun to play with' };
+const IDEA_WORDS = { break: 'pull sticks off logs', chip: 'knock stones off rocks', carry: 'carry water in a bucket', shelter: 'hide indoors from the rain', stockpile: 'save food for winter', cook: 'cook food', grass: 'plant seeds in the grass', plant: 'plant seeds', tend: 'water my plants', craft: 'build things' };
+
+// The right answers to "What's that for?" for this particular thing
+function answersFor(type) {
+  const opts = [], T = TYPES[type];
+  if (SPECIAL_USES[type]) opts.push(Object.assign({ act: SPECIAL_USES[type].act || (SPECIAL_USES[type].idea ? 'idea' : 'tell') }, SPECIAL_USES[type]));
+  const hurtVerbs = [];
+  for (const v of VERBS) {
+    const d = truthOf(type, v);
+    if ((d.health || 0) < -3) { hurtVerbs.push(v); continue; }
+    const good = NEEDS.some(n => n !== 'health' && (d[n] || 0) >= 6) || (d.health || 0) > 3 || (T && T.wild && T.wild[v]);
+    if (good && !opts.some(o => o.verb === v)) opts.push({ label: VERB_ANSWERS[v], act: 'tell', verb: v });
+  }
+  // something you can build with?
+  const all = Object.entries(RECIPES).filter(([, R]) => R.needs[type] && !R.custom), built = all.filter(([, R]) => !R.food);
+  const uses = built.length ? built : all;
+  if (uses.length) { const [r, R] = uses[Math.floor(Math.random() * uses.length)]; opts.push({ label: `🔨 Build with it (like ${R.label})`, act: 'idea', idea: 'recipe:' + r, also: ['craft'] }); }
+  if (hurtVerbs.length === 1 && hurtVerbs[0] === 'eat') opts.push({ label: type === 'mushroom' ? '🚫 Don\'t eat it, it\'s poisonous!' : '🚫 Don\'t eat it!', act: 'tell', bad: true, verb: 'eat' });
+  else if (hurtVerbs.length) opts.push({ label: '⚠️ Careful, it hurts!', act: 'tell', bad: true });
+  if (!opts.length) opts.push({ label: '🤷 It doesn\'t really do anything', act: 'nothing' });
+  return opts.slice(0, 4);
+}
+
 const TELL_OPTIONS = [
   { label: '😋 It\'s food', verb: 'eat' }, { label: '👅 You drink it', verb: 'drink' }, { label: '☀️ Warm up there', verb: 'bask' },
   { label: '💤 Sleep on it', verb: 'rest' }, { label: '🤸 It\'s a toy', verb: 'play' }, { label: '⚠️ Careful, it hurts!', bad: true },
@@ -171,7 +211,7 @@ const Talk = {
     if (mem) {
       b.asked[mem.type] = 1;
       const T = TYPES[mem.type];
-      return this.ask({ kind: 'whatis', type: mem.type, text: `What's that ${T.emoji} thing for?`, options: TELL_OPTIONS.map(o => Object.assign({ act: 'tell' }, o)) });
+      return this.ask({ kind: 'whatis', type: mem.type, text: `What's that ${T.emoji} thing for?`, options: answersFor(mem.type) });
     }
     // 4. a favourite it would like more of
     let fav = null, best = 12;
@@ -207,6 +247,7 @@ const Talk = {
       if (bad ? hurt : helped) return `Yes! I found that out too — it ${b.describeEffect(e.d)}.`;
       return `Hmm. When I tried it myself, it ${b.describeEffect(e.d)}. I'll go with what I felt.`;
     }
+    if (bad && verb === 'eat') return `Okay! I won't eat the ${T.emoji} ${T.name}. Thanks for the warning!`;
     if (bad) return `Yikes. I'll stay away from the ${T.emoji}. Thanks for the warning!`;
     return `Oh! So I can ${VERB_INFO[verb].phrase} the ${T.emoji} ${T.name}. I'll try that.`;
   },
@@ -242,8 +283,11 @@ const Talk = {
     else if (o.act === 'tell') this.pipSay(this.believe(q.type, o.verb || null, !!o.bad));
     else if (o.act === 'idea') {
       this.brain.addIdea(o.idea, 'you'); (o.also || []).forEach(i => this.brain.addIdea(i, 'you'));
-      this.pipSay(o.idea === 'shelter' ? 'Go inside when it rains! Of course. Why didn\'t I think of that? 💡' : `Ooh, ${RECIPES[o.idea.slice(7)] ? RECIPES[o.idea.slice(7)].label : 'that'}! Why didn't I think of that? I'll try! 💡`);
+      const what = o.idea.startsWith('recipe:') && RECIPES[o.idea.slice(7)] ? `I could make ${RECIPES[o.idea.slice(7)].label}` : IDEA_WORDS[o.idea] ? `I can ${IDEA_WORDS[o.idea]}` : 'that';
+      this.pipSay(`Ooh, ${what}! Why didn't I think of that? I'll try! 💡`);
     }
+    else if (o.act === 'read') { this.brain.learnEffect('bookstore', 'read', { fun: 18 }); this.pipSay('Books! I can learn things from them? I\'m going to go and look! 📚'); }
+    else if (o.act === 'nothing') { this.pipSay('Oh. It\'s just for looking at, then. 🙂'); }
     else if (o.act === 'suggest') {
       const key = createInvented(this, suggestedInvention(o.kind), true);
       if (key) { spawnInvention(this, key, 70); this.pipSay(`Good idea! I made a ${TYPES[key].emoji} ${TYPES[key].name}! 🤩`); }
