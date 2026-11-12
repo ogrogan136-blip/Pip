@@ -240,7 +240,7 @@ const Reading = {
     }
     r.literacy = Math.min(30, r.literacy + 0.5);
     this.spark(pickK, 0.04);
-    this.nextReadAt = (world.time || 0) + 480 + Math.random() * 360; // had enough reading for a while
+    this.nextReadAt = (world.time || 0) + 360 + Math.random() * 300; // had enough reading for a while
     const page = at + 1, done = (r.read[pickK] || []).length >= book.pages.length;
     const lead = r.literacy < 3 ? `Reading "${book.title}" ${book.emoji} — well, looking at the pictures! They show… ` : `Reading "${book.title}" ${book.emoji}, page ${page}: `;
     return lead + learnt.join(' ') + (done ? ' …The end! I finished the whole book! 🎉' : ' 📖');

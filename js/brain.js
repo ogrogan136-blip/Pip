@@ -600,6 +600,8 @@ class Brain {
           const ready = q && (q.kind === 'wonder' || q.kind === 'interest') ? (rested ? Math.max(0.7, this.curiosityReadiness(now)) * this.curiosity : 0) : 1;
           c.score += -c.parts.curious + (q ? q.val * ready : 0.02);
           c.parts.curious = q ? q.val * ready : 0.02;
+          // just read? the fun of reading can wait a while
+          if (!rested) { c.score -= c.parts.need * 0.75; c.parts.need *= 0.25; }
         }
         // ...and like anything else, it can be sniffed, sat in, chewed on:
         for (const v of VERBS) { consider(mem, mem.type, v); const k = candidates[candidates.length - 1]; if (!this.known(mem.type, v)) { k.score += k.parts.curious * 0.5; k.parts.curious *= 1.5; } }
@@ -619,6 +621,21 @@ class Brain {
     const topping = lizard.refill && Object.keys(lizard.refill).length > 0;
     candidates.push({ kind: 'idle', score: task || desperate > 0 ? 0.05 : topping ? 0.15 : 0.5, parts: {} });
 
+    // survival first: nearly starving or parched, anything that doesn't help with that can wait
+    const starving = needs.fullness < 15, parched = needs.hydration < 15;
+    if (starving || parched) for (const c of candidates) {
+      const e = c.kind === 'act' && this.known(c.type, c.verb);
+      const helps = (e && ((starving && (e.d.fullness || 0) > 3) || (parched && (e.d.hydration || 0) > 3)))
+        || (c.kind === 'act' && !e && ((starving && c.verb === 'eat') || (parched && c.verb === 'drink')))
+        || (c.kind === 'act' && c.type === 'store' && c.verb === 'eat' && c.parts.need > 0)
+        || (c.kind === 'wander' && c.search) || (c.kind === 'skill' && (c.verb === 'dig' || (c.verb === 'craft' && RECIPES[c.recipe] && RECIPES[c.recipe].food)));
+      if (!helps) c.score *= 0.25;
+    }
+    // while doing a task for its human, Pip's own projects can wait (unless they're urgent)
+    if (task) for (const c of candidates) if (c.kind === 'skill' && !['shelter', 'unwear', 'grab'].includes(c.verb)) c.score *= 0.45;
+    // thunder is scary: a house sounds good
+    if (world && world.weather === 'thunder') for (const c of candidates) if (c.verb === 'rest' && TYPES[c.type] && TYPES[c.type].building) c.score += 0.7;
+
     // Softmax choice among the good options (a bit of randomness = personality)
     candidates.sort((a, b) => b.score - a.score);
     const top = candidates.filter(c => c.score > candidates[0].score - 0.6).slice(0, 6);
@@ -627,10 +644,6 @@ class Brain {
     let r = Math.random() * ws.reduce((a, b) => a + b, 0), pick = top[0];
     for (let i = 0; i < top.length; i++) { r -= ws[i]; if (r <= 0) { pick = top[i]; break; } }
 
-    // while doing a task for its human, Pip's own projects can wait (unless they're urgent)
-    if (task) for (const c of candidates) if (c.kind === 'skill' && !['shelter', 'unwear', 'grab'].includes(c.verb)) c.score *= 0.45;
-    // thunder is scary: a house sounds good
-    if (world && world.weather === 'thunder') for (const c of candidates) if (c.verb === 'rest' && TYPES[c.type] && TYPES[c.type].building) c.score += 0.7;
     pick.desperateFor = desperateFor;
     pick.reason = this.reasonFor(pick);
     pick.thought = this.thoughtFor(pick, lizard, task, weights);

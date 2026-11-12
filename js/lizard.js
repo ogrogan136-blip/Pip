@@ -230,6 +230,7 @@ class Lizard {
     this.speed = 0;
     this.actObj = obj;
     this.timer = { rest: 16, bask: 12, play: 7, drink: 4.5, eat: 4.5, read: 12, dig: 9, break: 9, craft: 13, plant: 7, tend: 5, grab: 2, fill: 4, tinker: 10, stash: 3, wear: 4, unwear: 3, shelter: 25, putdown: 2 }[plan.verb] || 4;
+    if (plan.verb === 'read') this.timer = 20;
     this.longSleep = plan.verb === 'rest' && this.needs.energy < 40;
     if (this.longSleep) this.timer = 26; // a proper sleep
     this.inside = !!(obj && TYPES[obj.type].building && ['read', 'play', 'rest', 'shelter'].includes(plan.verb));
@@ -250,8 +251,10 @@ class Lizard {
     let delta, r;
     if (p.verb === 'read') {
       // Inside the book shop: look up whatever was on its mind
-      delta = { fullness: 0, hydration: 0, energy: -1, warmth: 0, fun: 6, health: 0 };
-      this.needs.fun = clamp(this.needs.fun + 6, 0, 100);
+      // reading is really good fun (more so about things Pip loves)
+      const joy = 16 + Math.round(4 * ((brain.topInterest() || [0, 0])[1] || 0));
+      delta = { fullness: 0, hydration: 0, energy: -1, warmth: 0, fun: joy, health: 0 };
+      this.needs.fun = clamp(this.needs.fun + joy, 0, 100);
       const firstVisit = brain.learnEffect(p.type, 'read', delta);
       let text;
       try { text = brain.readBook(this, world, task, p.desperateFor || {}); }
@@ -268,7 +271,7 @@ class Lizard {
       if (p.verb === 'eat' && brain.keepSeed(p.type)) r.text += ' I kept a seed. 🌱';
       // Nobody told Pip what a book shop is for. Poking around inside is how it finds out.
       if (TYPES[p.type] && TYPES[p.type].building && p.verb === 'play' && !brain.known(p.type, 'read')) {
-        brain.learnEffect(p.type, 'read', { fun: 6 });
+        brain.learnEffect(p.type, 'read', { fun: 18 });
         const found = brain.readBook(this, world, task, p.desperateFor || {});
         r = { mood: 'happy', text: `There are things with pages in here… I looked inside one. ${found} Wait — I can find things out in here! 🤯` };
       }
@@ -392,19 +395,22 @@ class Lizard {
         let read;
         try {
           if (!brain.known(obj.type, 'read')) {
-            brain.learnEffect(obj.type, 'read', { fun: 6 });
+            brain.learnEffect(obj.type, 'read', { fun: 18 });
             read = `While I waited for the rain, I found things with pages in here… ${brain.readLibrary(this, world, null)} I can learn things in here! 🤯`;
           } else if (Math.random() < 0.5) read = 'Rainy day… ' + brain.readLibrary(this, world, null).replace(/^Reading/, 'reading');
           else { read = null; text = pick(['Listening to the rain on the roof… 🌧️', 'Cosy in here with the books. 📚', 'Pitter-patter, pitter-patter… 🌧️']); }
         } catch (e) { console.error(e); read = null; }
         if (read) {
           text = read; brain.spark('seasons', 0.02);
-          this.needs.fun = clamp(this.needs.fun + 4, 0, 100);
+          this.needs.fun = clamp(this.needs.fun + 12, 0, 100);
           brain.nextReadAt = world.time + 120; // reading in the rain doesn't spoil the next proper visit much
           if (this.onRead) this.onRead(read);
         }
       }
-      if (world.raining) { this.state = 'acting'; this.timer = 25; this.inside = !!(obj && TYPES[obj.type].building); this.think(text, 'happy'); return; }
+      // keep sheltering while it rains, unless something more important comes up (food, water, sleep)
+      const n = this.needs, urgent = n.fullness < 40 || n.hydration < 40 || n.energy < 20 || n.health < 50 || (this.refill && (this.refill.fullness || this.refill.hydration));
+      if (world.raining && !urgent) { this.state = 'acting'; this.timer = 25; this.inside = !!(obj && TYPES[obj.type].building); this.think(text, 'happy'); return; }
+      if (world.raining && urgent) text = n.hydration < n.fullness ? 'I\'m so thirsty I\'ll have to brave the rain. 💧' : 'My tummy can\'t wait for the rain to stop. Dashing out! 🏃';
     } else if (p.verb === 'putdown') {
       this.keepCarry = false; this.drop(world);
       text = 'Rain\'s stopped. I\'ll put my umbrella down. ☂️';

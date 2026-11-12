@@ -282,7 +282,8 @@ class World {
     // Auto-feeder: keeps a little food around so Pip doesn't starve while you're away
     if (this.autoFeeder) {
       this.feederTimer += dt;
-      if (this.feederTimer > (this.season === 'winter' ? 500 : 150)) { // food is rare in winter
+      const starving = lizard && lizard.needs.fullness < 12;
+      if (this.feederTimer > (starving ? 45 : this.season === 'winter' ? 500 : 150)) { // food is rare in winter (but the keeper notices a starving lizard)
         this.feederTimer = 0;
         // logs slowly get new loose bark, and a fallen log turns up now and then if there are none
         for (const lg of this.objects) if (lg.type === 'log' && lg.breaks > 0 && this.time - (lg.lastBreak || 0) > 600) { lg.breaks--; lg.lastBreak = this.time; }
@@ -291,7 +292,7 @@ class World {
         if (!this.objects.some(o => o.type === 'water')) this.add('water', 780, 480);
         const foods = this.objects.filter(o => ['cricket', 'mealworm', 'lettuce', 'berry'].includes(o.type)).length;
         // food only turns up now and then; growing more is up to Pip
-        if (foods < 2 && !(this.season === 'winter' && Math.random() < 0.7)) {
+        if ((foods < 2 && !(this.season === 'winter' && Math.random() < 0.7)) || (starving && foods < 1)) {
           const pick = ['cricket', 'mealworm', 'lettuce', 'lettuce', 'berry', 'berry'][Math.floor(Math.random() * 6)];
           this.add(pick, rand(60, WORLD_W - 60), rand(60, WORLD_H - 60));
         }
