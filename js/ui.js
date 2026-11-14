@@ -35,7 +35,7 @@
         const s = JSON.parse(data.save);
         const here = (loadSave() || {}).savedAt || 0;
         // the account copy is newer than what this browser has: use it
-        if ((s.savedAt || 0) > Math.max(here, 0) + 2000) { cloudLoaded = true; restart(s); game.addLog('(Loaded Pip from your Claude account.)', 'task'); return; }
+        if ((s.savedAt || 0) > Math.max(here, 0) + 2000) { cloudLoaded = true; restart(s); game.addLog('(Loaded Pip from your Claude account.)', 'task'); catchUp(s.savedAt); return; }
       }
       cloudLoaded = true;
       saveToCloud(JSON.stringify(game), true);
@@ -43,7 +43,8 @@
   }
 
   let game;
-  try { game = new Game(loadSave()); } catch (e) { console.warn('Save was unreadable, starting fresh', e); game = new Game(null); }
+  const firstSave = loadSave();
+  try { game = new Game(firstSave); } catch (e) { console.warn('Save was unreadable, starting fresh', e); game = new Game(null); }
   if (!game.log.length) game.addLog(game.brain.stats.actions ? `I'm back! I still remember ${game.brain.stats.discoveries} things I've learned. 🦎` : 'Hi! I\'m Pip. I don\'t know anything about this place yet… 🦎', 'thought');
 
   const renderer = new Renderer3D($('world'), $('overlay'));
@@ -298,7 +299,7 @@
     const t = $('chatText').value.trim();
     if (!t || AI.busy) return;
     $('chatText').value = '';
-    if (!(AI.ready && $('aiOn').checked)) { game.say(t); renderChat(); return; }
+    if (!(AI.ready && $('aiOn').checked) || (game.question && game.question.who === 'friend')) { game.say(t); renderChat(); return; }
     game.youSay(t); renderChat();
     AI.busy = true; showThinking(true);
     try {
@@ -501,6 +502,50 @@
     save();
   }
 
+  // ---------- while you were away ----------
+  // A web page can't run while it's closed, so when you come back the world fast-forwards
+  // through the time you were gone (at a quarter of normal speed, at most ~2 hours of game time).
+  let catching = null;
+  function catchUp(since) {
+    if (!since) return;
+    const away = (Date.now() - since) / 1000;
+    if (away < 120) return;
+    const simSecs = Math.min(away * 0.25, 7200);
+    const token = {}; catching = token;
+    const W = game.world, before = { day: Math.floor(W.time / W.dayLength), diary: game.diary.length, books: game.brain.stats.books || 0, goals: Object.keys(game.goals).length, friend: !!game.friend };
+    const box = document.createElement('div'); box.className = 'catchup'; document.querySelector('.canvas-wrap').appendChild(box);
+    let done = 0;
+    const STEP_AWAY = 0.2;
+    (function chunk() {
+      if (catching !== token) { box.remove(); return; }
+      const t0 = performance.now();
+      while (done < simSecs && performance.now() - t0 < 30) {
+        try { game.step(STEP_AWAY); } catch (err) { recover(err); }
+        done += STEP_AWAY;
+      }
+      box.textContent = `⏩ While you were away… ${Math.round(100 * done / simSecs)}%`;
+      if (done < simSecs) { setTimeout(chunk, 0); return; }
+      catching = null; box.remove();
+      const days = Math.floor(game.world.time / game.world.dayLength) - before.day;
+      const fresh = game.diary.slice(0, Math.max(0, game.diary.length - before.diary)).reverse();
+      const hrs = away / 3600, gone = hrs >= 48 ? `${Math.round(hrs / 24)} days` : hrs >= 2 ? `${Math.round(hrs)} hours` : `${Math.round(away / 60)} minutes`;
+      const highlights = fresh.map(d => d.text.replace(/^(It was [a-z]+\.|It rained\.|It snowed!|There was a scary storm\.|It was SO hot\.)\s*/, '')).filter(t => t.length > 20).slice(-3);
+      let msg = `I missed you! You were gone for ${gone}, and ${days} day${days === 1 ? '' : 's'} went by here.`;
+      if ((game.brain.stats.books || 0) > before.books) msg += ` I read ${game.brain.stats.books - before.books} pages.`;
+      if (Object.keys(game.goals).length > before.goals) msg += ` We reached ${Object.keys(game.goals).length - before.goals} new goal${Object.keys(game.goals).length - before.goals === 1 ? '' : 's'}! 🏆`;
+      if (!before.friend && game.friend) msg += ` Oh, and a tortoise called ${game.friend.name} moved in! 🐢`;
+      game.pipSay(msg, 'happy');
+      highlights.forEach(h => game.chat.push({ from: 'pip', text: '📔 ' + h }));
+      game.emit('chat');
+      save();
+    })();
+  }
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) hiddenAt = Date.now();
+    else if (hiddenAt && !catching) { const t = hiddenAt; hiddenAt = 0; catchUp(t); }
+  });
+
   // ---------- if anything goes wrong, keep going instead of freezing ----------
   let lastErr = '';
   function recover(err) {
@@ -521,7 +566,7 @@
     try {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    acc += dt * speed;
+    acc += catching ? 0 : dt * speed; // (while catching up, the catch-up does the stepping)
     let steps = 0;
     try { while (acc >= STEP && steps < 800) { game.step(STEP); acc -= STEP; steps++; } }
     catch (err) { acc = 0; recover(err); }
@@ -553,6 +598,7 @@
   connectCloud();
   renderTask(); renderBrain();
   requestAnimationFrame(frame);
+  catchUp(firstSave && firstSave.savedAt);
 
   function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   window.pipGame = () => game; // handy for poking around in the console

@@ -109,7 +109,7 @@ const Life = {
   // remember something for today's diary (importance 1-3)
   note(text, importance = 1) {
     // everyday chores don't make it into the diary, and nothing twice
-    if (/^(There you go|Got a|Got my|Planted another|Sizzle… one|Filled my bucket|Stored a|Time to|Off to|I'll grab|Clack\. More|Crack\. More|Bonk|Found a|That (filled|quenched|gave|warmed|was)|Nope|Rainy day…|Listening|Pitter|Cosy in here|Staying in|Nothing here|Just sand|Tap, tap|I pulled at)/.test(text)) return;
+    if (/^(Eek|BOOM|So loud|Ooh! What's that|There you go|Got a|Got my|Planted another|Sizzle… one|Filled my bucket|Stored a|Time to|Off to|I'll grab|Clack\. More|Crack\. More|Bonk|Found a|That (filled|quenched|gave|warmed|was)|Nope|Rainy day…|Listening|Pitter|Cosy in here|Staying in|Nothing here|Just sand|Tap, tap|I pulled at)/.test(text)) return;
     const key = text.replace(/[^a-z ]/gi, '').slice(0, 40);
     if (this.today.some(t => t.key === key)) return;
     this.today.push({ text, importance, key });

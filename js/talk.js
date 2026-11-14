@@ -123,6 +123,7 @@ const TELL_OPTIONS = [
 // Mixed into Game (see game.js)
 const Talk = {
   pipSay(text, mood = 'happy') {
+    if (this._relay && !text.startsWith('🐢')) text = `🐢 ${this._relay} says: ${text}`;
     this.chat.push({ from: 'pip', text });
     if (this.chat.length > 40) this.chat.shift();
     this.lizard.think(text, 'ask');
@@ -143,7 +144,31 @@ const Talk = {
   },
 
   // Does Pip have something it wants to ask right now?
+  // Run something as if Shelly were the one talking (Pip passes the messages on)
+  asFriend(fn) {
+    const L = this.lizard, b = this.brain;
+    this.lizard = this.friend; this.brain = this.friendBrain; this._relay = this.friend.name;
+    try { return fn(); } finally { this.lizard = L; this.brain = b; this._relay = null; }
+  },
+
   maybeAsk() {
+    if (this.question || this.world.time < this.nextAsk) return;
+    this.maybeAskSelf();
+    // nothing on Pip's mind? maybe Shelly has something she wants Pip to ask
+    if (!this.question && this.friend && !this._relay && Math.random() < 0.5) {
+      const before = this.chat.length;
+      this.asFriend(() => this.maybeAskSelf());
+      if (this.question) {
+        this.question.who = 'friend';
+        this.question.text = `🐢 ${this.friend.name} wants to know: ${this.question.text}`;
+        if (this.chat.length > before) this.chat[this.chat.length - 1].text = this.question.text;
+        this.lizard.think(`${this.friend.name} asked me to ask you something. 🐢`, 'ask');
+        this.emit('chat');
+      }
+    }
+  },
+
+  maybeAskSelf() {
     const L = this.lizard, b = this.brain;
     if (this.question || this.world.time < this.nextAsk || L.state === 'fainted' || L.state === 'acting') return;
     // 1. a task it can't make sense of
@@ -275,6 +300,7 @@ const Talk = {
   // clicking one of the quick-reply buttons
   answerOption(i) {
     const q = this.question;
+    if (q && q.who === 'friend' && !this._relay && this.friend) return this.asFriend(() => this.answerOption(i));
     if (!q || !q.options[i]) return;
     const o = q.options[i];
     this.youSay(o.label);
@@ -298,6 +324,7 @@ const Talk = {
 
   // typing a message to Pip
   say(text) {
+    if (this.question && this.question.who === 'friend' && !this._relay && this.friend) return this.asFriend(() => this.say(text));
     text = String(text).trim().slice(0, 140);
     if (!text) return;
     this.youSay(text);

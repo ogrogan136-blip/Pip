@@ -241,3 +241,5 @@ body.photo .layout { grid-template-columns: minmax(0, 1fr); max-width: none; }
 .friend-tag { font-size: 12px; padding: 2px 8px; background: rgba(255,248,225,.92); }
 .friend-tag::after { display: none; }
 .log li.k-friend { color: #8a6d1f; }
+
+.catchup { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,.94); color: #222; padding: 12px 18px; border-radius: 14px; font-size: 16px; font-weight: 600; box-shadow: 0 2px 12px rgba(0,0,0,.2); line-height: 1.3; }
